@@ -10,7 +10,7 @@ __pycache__/
 
 # secrets and local data
 .env
-data/
+/data/
 *.index
 rag_storage/
 output/

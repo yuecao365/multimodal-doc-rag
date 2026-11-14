@@ -27,3 +27,20 @@
 - **答案生成没有直接调用 `aquery_vlm_enhanced`**：它的提示词来自 LightRAG 自己的检索上下文和其中的图片路径，而我们的上下文是融合后的页面列表。所以直接拼提示词：每页以 `[PAGE <id>]` 开头，后面跟页面图片或文本；要求模型输出 JSON，包含答案和引用（页 ID 加原文引文）。
 - **评分器**：三档（correct / partially_correct / incorrect，对应 1 / 0.5 / 0）。解析不了的回复单独计数，不计入平均，不猜。另有导出人工抽查表和计算一致率、Cohen's kappa 的工具。
 - **一个统一的运行脚本**（`mmrag.experiments.run`）取代了原来的 `baseline.py`，各管线共用同一套输出格式。
+
+## 阶段 2：纯视觉
+
+- **视觉模型**：默认 `vidore/colSmol-256M`（已在 `D:\rag_cache\hf`）。4GB 显存放得下，半精度推理。编码器按模型名选 colpali-engine 里的类，换成 ColQwen2 / ColPali 只改 `--visual-model`。
+- **编码和检索分开**：
+  1. `mmrag.experiments.export_pages`（项目环境）把页面图和查询导出成普通文件，放在 `data/pages/<子集>/`。
+  2. `mmrag.visual.encode_cli`（GPU 环境）编码成 `pages.npz` 和 `queries.npz`。
+  3. 检索、评测在项目环境里读这两个文件，不需要 GPU 和模型。
+  - 查询向量按查询文本的哈希存取；遇到没编码过的查询会直接报错，不会悄悄跳过。
+  - 代价是页面图在磁盘上多存一份（hr 子集约 440 MB，在 git 忽略的 `data/` 下，编码完可以删）。
+- **编码结果只存一份 float16、不池化的向量**，池化和更粗的量化在建检索索引时再做。这样一次 GPU 编码可以服务所有压缩设置的对比，也能给重排保留全精度向量。
+- **存储格式**：自己实现的 `MultiVectorStore`，所有页的向量拼成一个数组加每页的偏移，存成一个 `.npz`。没有引入向量数据库：1110 页规模下暴力 MaxSim 足够快，而且每页占多少字节可以直接读出来，这正是要比较的指标。
+- **压缩选项**：
+  - 量化：`float32` / `float16` / `int8`（乘 127 取整）/ `binary`（每维 1 位，按符号）。
+  - 池化：对一页内的向量做层次聚类（Ward），每簇取均值再归一化，`pool_factor=3` 约保留三分之一的向量。做法与 ColPali 的 token pooling 一致，用 scipy 实现，避免依赖 colpali-engine。
+- **MaxSim 用 numpy 分块计算**，按页边界切块，内存占用可控。
+- **本机实测（仅 9 页的冒烟测试，用来确认代码能跑，不是实验结果）**：ColSmol 每页 875 个 128 维向量；float16 每页约 224 KB，int8 加 3 倍池化约 37 KB，binary 加 3 倍池化约 4.7 KB；RTX 3050 上约 1.6 秒/页（含模型预热）。

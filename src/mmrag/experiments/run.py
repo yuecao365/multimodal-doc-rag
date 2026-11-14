@@ -45,20 +45,22 @@ def spec_from_args(args: argparse.Namespace) -> PipelineSpec:
     return PipelineSpec(**{f.name: getattr(args, f.name) for f in dataclasses.fields(PipelineSpec)})
 
 
-def run_experiment(args: argparse.Namespace, embedder=None) -> Path:
+def run_experiment(args: argparse.Namespace, **overrides) -> Path:
+    """Run one experiment. ``overrides`` replace models (see ``build_pipeline``); tests use them."""
     load_dotenv(ROOT / ".env")
     spec = spec_from_args(args)
+    n_queries = args.n_queries or None  # 0 means every query
     name = args.name or spec.pipeline
     out_dir = results_dir(name, args.date)
     slug = args.dataset.replace("\\", "/").rstrip("/").split("/")[-1]
     work_dir = Path(args.work_dir) if args.work_dir else ROOT / "rag_storage" / f"{name}_{slug}"
 
-    data = load_vidore_subset(args.dataset, args.n_queries, args.language, args.seed)
+    data = load_vidore_subset(args.dataset, n_queries, args.language, args.seed)
     config = {
         "name": name,
         "dataset": args.dataset,
         "language": args.language,
-        "n_queries": args.n_queries,
+        "n_queries": n_queries,
         "seed": args.seed,
         "corpus": "full subset",
         "work_dir": str(work_dir),
@@ -71,7 +73,7 @@ def run_experiment(args: argparse.Namespace, embedder=None) -> Path:
         [{"query_id": q, "query": t} for q, t in zip(data.query_ids, data.queries)],
     )
 
-    pipeline = build_pipeline(spec, work_dir, embedder=embedder, data=data)
+    pipeline = build_pipeline(spec, work_dir, data=data, **overrides)
 
     t0 = time.perf_counter()
     pipeline.index(data.corpus_ids, None, data.corpus_texts, args.dataset)
@@ -170,8 +172,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> Path:
     args = build_parser().parse_args(argv)
-    if args.n_queries == 0:
-        args.n_queries = None
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     return run_experiment(args)
 

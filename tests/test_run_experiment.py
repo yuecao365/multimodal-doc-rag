@@ -4,9 +4,10 @@ import json
 
 import pytest
 
-from helpers import HashingEmbedder
+from helpers import FakeLateEncoder, HashingEmbedder
 from mmrag.adapters.vidore_pipeline import MMRAGPipeline
 from mmrag.data.vidore import load_vidore_subset
+from mmrag.experiments.common import read_jsonl
 from mmrag.experiments.run import build_parser, run_experiment
 
 
@@ -20,7 +21,7 @@ def run_args(dataset_dir, tmp_path, monkeypatch):
     monkeypatch.setattr(run_module, "ROOT", tmp_path)
 
     def make(*extra):
-        argv = ["--dataset", str(dataset_dir), "--n-queries", "3", "--date", "2000-01-01"]
+        argv = ["--dataset", str(dataset_dir), "--n-queries", "0", "--date", "2000-01-01"]
         return build_parser().parse_args([*argv, "--work-dir", str(tmp_path / "work"), *extra])
 
     return make
@@ -35,9 +36,11 @@ def test_text_pipeline_writes_reproducible_results(run_args, tmp_path):
 
     assert out == tmp_path / "results" / "2000-01-01_t"
     metrics = read(out / "metrics.json")
-    assert metrics["n_queries"] == 3 and metrics["n_corpus_pages"] == 6
+    assert metrics["n_queries"] == 4 and metrics["n_corpus_pages"] == 6
     assert metrics["n_pages_empty_text"] == 1
-    assert metrics["recall_10"] == 1.0
+    # Three questions are answered by text pages; the fourth needs the chart page,
+    # which has no extracted text and so cannot be found by the text route.
+    assert metrics["recall_10"] == 0.75
     config = read(out / "config.json")
     assert config["pipeline"]["pipeline"] == "text" and config["seed"] == 0
     assert read(out / "cost.json")["index_storage_bytes"] > 0
@@ -58,3 +61,43 @@ def test_leaderboard_adapter_has_basepipeline_shape(dataset_dir, tmp_path):
     assert max(run["10"], key=run["10"].get) == "0"
     assert infos["index_storage_bytes"] > 0
     pipeline._pipeline.close()
+
+
+def test_visual_pipeline_finds_the_chart_page(run_args):
+    out = run_experiment(
+        run_args("--pipeline", "visual", "--quantization", "int8"),
+        visual_encoder=FakeLateEncoder(),
+    )
+    assert out.name == "2000-01-01_visual"
+    assert read(out / "metrics.json")["recall_10"] == 1.0
+    cost = read(out / "cost.json")
+    assert cost["after_index"]["visual_index"]["quantization"] == "int8"
+    assert cost["after_index"]["pages_encoded_now"] == 6
+    assert cost["index_storage_bytes_per_page"] > 0
+
+
+def test_export_then_encode_then_retrieve_from_files(dataset_dir, tmp_path, run_args):
+    """The two-environment flow: export pages, encode them, retrieve from the saved vectors."""
+    from mmrag.experiments.export_pages import export_pages
+    from mmrag.visual.encode_cli import encode_pages
+    from mmrag.visual.store import MultiVectorStore, text_key
+
+    pages_dir = tmp_path / "pages"
+    stats = export_pages(str(dataset_dir), pages_dir, language="english")
+    assert stats == {"pages": 6, "images_written": 6, "queries": 4}
+    assert export_pages(str(dataset_dir), pages_dir)["images_written"] == 0  # re-run is a no-op
+    assert (pages_dir / "images" / "3.png").exists()
+
+    encoder = FakeLateEncoder()
+    ids, embeddings = encode_pages(encoder, pages_dir / "images", batch_size=4)
+    assert ids == ["0", "1", "2", "3", "4", "5"]
+    visual_dir = tmp_path / "visual"
+    MultiVectorStore.from_embeddings(ids, embeddings, "float16").save(visual_dir / "pages.npz")
+    queries = [q["query"] for q in read_jsonl(pages_dir / "queries.jsonl")]
+    MultiVectorStore.from_embeddings(
+        [text_key(q) for q in queries], encoder.encode_queries(queries), "float16"
+    ).save(visual_dir / "queries.npz")
+
+    out = run_experiment(run_args("--pipeline", "visual", "--visual-store", str(visual_dir)))
+    assert read(out / "metrics.json")["recall_10"] == 1.0
+    assert read(out / "cost.json")["after_index"]["pages_encoded_now"] == 0

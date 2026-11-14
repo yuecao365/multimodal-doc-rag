@@ -25,7 +25,10 @@ QUERIES = {
     "11": ("when are salary bands reviewed", "english", "Every April.", ["1"]),
     "12": ("who books the TX-900 projector", "english", "The travel desk.", ["5"]),
     "13": ("combien de semaines de congé parental", "french", "Seize semaines.", ["0"]),
+    "14": ("headcount growth by region chart", "english", "EMEA grew fastest.", ["3"]),
 }
+# What a vision model can read on each page: its text, or for the chart page its content.
+VISIBLE = {**PAGES, "3": "bar chart of headcount growth by region"}
 
 
 def _hash(token: str, dim: int) -> int:
@@ -80,6 +83,35 @@ class FakeChat:
         return {"model": "fake", "calls": self.calls, "prompt_tokens": 0, "completion_tokens": 0}
 
 
+class FakeLateEncoder:
+    """Late-interaction encoder stand-in: one unit vector per word.
+
+    A page image is mapped back to its page id (stored in pixel 0,0) and encoded
+    from what is "visible" on it, so MaxSim counts the query words found on the page.
+    """
+
+    dim = 64
+
+    def __init__(self) -> None:
+        self.image_calls = 0
+
+    def _vectors(self, text: str) -> np.ndarray:
+        words = tokens(text) or ["<blank>"]
+        out = np.zeros((len(words), self.dim), dtype=np.float32)
+        for i, word in enumerate(words):
+            rng = np.random.default_rng(_hash(word, 2**32))
+            v = rng.standard_normal(self.dim)
+            out[i] = v / np.linalg.norm(v)
+        return out
+
+    def encode_images(self, images):
+        self.image_calls += 1
+        return [self._vectors(VISIBLE[str(np.asarray(im)[0, 0, 0])]) for im in images]
+
+    def encode_queries(self, texts):
+        return [self._vectors(t) for t in texts]
+
+
 def page_image(page_id: str, size: tuple[int, int] = (64, 80)):
     """A small synthetic page image whose content depends on the page id."""
     from PIL import Image
@@ -87,6 +119,7 @@ def page_image(page_id: str, size: tuple[int, int] = (64, 80)):
     rng = np.random.default_rng(int(page_id) if page_id.isdigit() else 0)
     arr = np.full((size[1], size[0], 3), 255, dtype=np.uint8)
     arr[10:40, 8:56] = rng.integers(0, 255, size=(30, 48, 3), dtype=np.uint8)
+    arr[0, 0] = (int(page_id) if page_id.isdigit() else 255, 0, 0)  # lets fakes identify the page
     return Image.fromarray(arr)
 
 

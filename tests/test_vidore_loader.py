@@ -32,7 +32,7 @@ def test_sample_is_deterministic_and_order_independent():
 
 def test_loads_subset_from_local_parquet(dataset_dir):
     data = load_vidore_subset(str(dataset_dir), n_queries=2, language="english", seed=0)
-    assert len(data.query_ids) == 2 and set(data.query_ids) <= {"10", "11", "12"}
+    assert len(data.query_ids) == 2 and set(data.query_ids) <= {"10", "11", "12", "14"}
     assert data.corpus_ids == ["0", "1", "2", "3", "4", "5"]
     assert data.corpus_texts[3] == ""
     assert set(data.qrels) == set(data.query_ids)
@@ -44,7 +44,7 @@ def test_loads_subset_from_local_parquet(dataset_dir):
 
 def test_all_queries_and_page_images(dataset_dir):
     data = load_vidore_subset(str(dataset_dir), n_queries=None, language=None)
-    assert len(data.query_ids) == 4
+    assert len(data.query_ids) == 5
     images = data.load_page_images(["1", "4"])
     assert set(images) == {"1", "4"}
     assert images["1"].size == (64, 80)

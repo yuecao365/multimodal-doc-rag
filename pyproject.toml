@@ -1,0 +1,40 @@
+[project]
+name = "mmrag"
+version = "0.1.0"
+description = "Multimodal document RAG: page-level visual retrieval and per-page routing on top of RAG-Anything"
+readme = "AGENTS.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "raganything>=1.4.4,<1.5",
+    "lightrag-hku<1.5",
+    "datasets>=3.0",
+    "pillow>=10.0",
+    "numpy",
+    "openai>=1.0",
+    "python-dotenv>=1.0",
+    # Same API as pytrec_eval (which vidore-benchmark uses), with prebuilt Windows wheels.
+    "pytrec-eval-terrier>=0.5.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mmrag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["reference"]

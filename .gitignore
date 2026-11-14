@@ -1,0 +1,22 @@
+# upstream read-only clones
+reference/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# secrets and local data
+.env
+data/
+*.index
+rag_storage/
+output/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

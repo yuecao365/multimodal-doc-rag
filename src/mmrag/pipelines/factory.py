@@ -6,6 +6,7 @@ the leaderboard adapter.
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -22,12 +23,15 @@ class PipelineSpec:
     chunk_token_size: int = 1200
     chunk_overlap_token_size: int = 100
     # visual route
-    visual_model: str = "vidore/colSmol-256M"
+    visual_model: str = "vidore/colqwen2.5-v0.2"
     # Directory with pages.npz / queries.npz from mmrag.visual.encode_cli. Empty: encode
     # here with the model (needs torch + colpali-engine in the current environment).
     visual_store: str = ""
     quantization: str = "float16"
     pool_factor: int = 1
+    # Encode queries that are not in queries.npz (rewrites, agent searches) with the
+    # local model, in the visual environment named by VISUAL_PYTHON.
+    local_query_encoder: bool = False
     # keyword route: analyzer language (stemmer, stopwords); "french" for finance_fr
     bm25_language: str = "english"
     # hybrid
@@ -64,7 +68,20 @@ def build_text_route(spec: PipelineSpec, work_dir: Path, embedder: Any | None = 
     )
 
 
-def load_precomputed(visual_store: str):
+def build_query_worker(model: str):
+    """Query encoder process: the stored vectors' model, on CPU in bfloat16."""
+    from mmrag.visual.encoder import WorkerQueryEncoder
+
+    python = os.getenv("VISUAL_PYTHON")
+    if not python:
+        raise RuntimeError("Set VISUAL_PYTHON in .env to the Python of the visual environment")
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2])}
+    if os.getenv("VISUAL_HF_HOME"):
+        env["HF_HOME"] = os.environ["VISUAL_HF_HOME"]
+    return WorkerQueryEncoder([python, "-m", "mmrag.visual.query_worker", "--model", model], env)
+
+
+def load_precomputed(visual_store: str, local_query_encoder: bool = False):
     """(page store, query encoder) from an encode_cli output directory."""
     from mmrag.visual.encoder import PrecomputedQueryEncoder
     from mmrag.visual.store import MultiVectorStore
@@ -75,7 +92,9 @@ def load_precomputed(visual_store: str):
         raise FileNotFoundError(
             f"{root} must contain pages.npz and queries.npz (run mmrag.visual.encode_cli)"
         )
-    return MultiVectorStore.load(pages), PrecomputedQueryEncoder(MultiVectorStore.load(queries))
+    page_store = MultiVectorStore.load(pages)
+    fallback = build_query_worker(page_store.meta["model"]) if local_query_encoder else None
+    return page_store, PrecomputedQueryEncoder(MultiVectorStore.load(queries), fallback)
 
 
 def build_visual_route(
@@ -93,7 +112,7 @@ def build_visual_route(
     precomputed = visual_pages
     encoder = visual_encoder
     if encoder is None and spec.visual_store:
-        precomputed, encoder = load_precomputed(spec.visual_store)
+        precomputed, encoder = load_precomputed(spec.visual_store, spec.local_query_encoder)
     elif encoder is None:
         from mmrag.visual.encoder import ColpaliEncoder
 
@@ -137,7 +156,9 @@ def build_reranker(
                 raise ValueError(
                     "--rerank maxsim needs --visual-store: full-precision vectors of every page"
                 )
-            visual_pages, visual_encoder = load_precomputed(spec.visual_store)
+            visual_pages, visual_encoder = load_precomputed(
+                spec.visual_store, spec.local_query_encoder
+            )
         return MaxSimReranker(visual_encoder, visual_pages)
     raise ValueError(f"Unknown reranker '{spec.rerank}'. Choose none, maxsim or llm")
 

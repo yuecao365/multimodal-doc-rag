@@ -120,6 +120,27 @@ class MultiVectorStore:
             vectors = np.zeros((0, 0), dtype=np.float32)
         return cls(list(ids), offsets, vectors, dim, quantization, pool_factor, dict(meta or {}))
 
+    @classmethod
+    def concat(cls, stores: list[MultiVectorStore]) -> MultiVectorStore:
+        """One store holding the pages of several stores with the same compression."""
+        first = stores[0]
+        for s in stores[1:]:
+            same = (s.dim, s.quantization, s.pool_factor) == (
+                first.dim, first.quantization, first.pool_factor,
+            )  # fmt: skip
+            if not same:
+                raise ValueError("Stores differ in dim, quantization or pooling")
+        ids = [pid for s in stores for pid in s.ids]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Stores share page ids")
+        counts = np.concatenate([np.diff(s.offsets) for s in stores])
+        offsets = np.zeros(len(ids) + 1, dtype=np.int64)
+        offsets[1:] = np.cumsum(counts)
+        vectors = np.concatenate([s.vectors for s in stores], axis=0)
+        return cls(
+            ids, offsets, vectors, first.dim, first.quantization, first.pool_factor, first.meta
+        )
+
     def recompress(self, quantization: str, pool_factor: int = 1) -> MultiVectorStore:
         """A new store with different compression, built from this one's vectors."""
         if quantization == self.quantization and pool_factor == 1:

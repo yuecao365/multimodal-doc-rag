@@ -1,56 +1,102 @@
 # Multimodal Document RAG
 
-一个通用的多模态文档问答系统。用户对任意 PDF（报告、手册、课件、扫描件）提问，系统检索相关页面，由视觉语言模型生成答案，并标注出处（页码，可选给出页面区域）。
+Question answering over PDF pages. The system retrieves the relevant pages, a vision
+language model (VLM) answers from them, and every answer cites pages with quotes
+that are checked by code.
 
-本项目基于 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 扩展。RAG-Anything 走的是"解析 → 给图表写文字描述 → 建知识图谱"的路线，没有整页视觉检索。本项目在它之上新增两件事：
+Built on [RAG-Anything](https://github.com/HKUDS/RAG-Anything) / LightRAG, which
+have no whole-page visual retrieval. This project adds:
 
-1. **整页视觉检索**：把页面当图片，用 late-interaction 模型（ColQwen 一类）生成多向量，用 MaxSim 打分。
-2. **按页路由**：文字为主的页面走解析加文本检索，图表为主的页面走视觉检索；关键词检索（BM25）覆盖全部页面。各路结果融合。
+1. **Whole-page visual retrieval**: page images as multi-vectors from a
+   late-interaction model (ColPali family), scored with MaxSim.
+2. **Per-page routing**: text-heavy pages go to text retrieval, chart/table-heavy
+   pages to visual retrieval; BM25 covers every page; results are fused.
 
-要回答的问题是：怎样用尽量少的存储和成本，拿到接近纯视觉检索的答案质量。
+Headline result: an improvement ladder from a simple, standard text-RAG baseline to
+the final system, each step measured, confirmed on a held-out subset (see
+`PLAN.md`). Efficiency question alongside it: how much storage and cost per-page
+routing and compression save at equal quality.
 
-## 架构
+## Architecture
 
 ```
-离线  PDF ─┬─ 解析(Docling/MinerU) → 模态描述 → 文本索引(LightRAG)   [复用]
-           ├─ 切词 → 关键词索引(BM25)                               [新增]
-           └─ 页面分析器 → 视觉页面索引(多向量)                     [新增]
-在线  问题 → 三路检索 → RRF 融合 → 重排(可选) → 上下文组装 → VLM 生成 → 引用校验
+index   page analyzer → text pages   → chunk + embed (LightRAG, naive mode, no KG)
+                      → visual pages → multi-vectors (pooling / quantization)
+        all pages     → BM25 inverted index
+query   three routes → RRF fusion → optional rerank → context assembly
+        → VLM answer with citations → citation check
 ```
 
-| 组件 | 职责 | 来源 |
-|---|---|---|
-| 解析、模态描述、文本索引 | 拆分文字/表格/图片/公式并记录页码；为图表生成描述；向量库与知识图谱 | 复用 RAG-Anything |
-| 关键词索引 | 对解析文本切词（与 Pyserini 的英文 BM25 基线一致：小写、去停用词、Porter 词干化；ViDoRe 的其他语言用对应的 Snowball 词干器），建 BM25 倒排索引，补足向量检索对型号、编号、数字等精确字符串的不足 | 新增 |
-| 页面分析器 | 按图表与表格占比、文字密度、OCR 置信度，把页面分为文字页或视觉页 | 新增 |
-| 视觉页面索引 | 为视觉页生成多向量，支持池化或量化以压缩存储 | 新增 |
-| 多路检索与融合 | 文本、关键词、视觉三路结果统一到页面 ID，用 RRF 合并 | 新增 |
-| 重排 | 对 top-k 候选页重新打分 | 新增，可选 |
-| 上下文组装 | 选出若干页，以页面图片或解析文本形式放入上下文，控制 token 预算 | 新增 |
-| 生成 | VLM 看页面作答，并给出页码 | 改造 RAG-Anything 的 `vlm_enhanced` 查询 |
-| 引用校验 | 用代码检查引用的页面是否在检索结果中、引文是否真实存在 | 新增 |
+- Entry points: `src/mmrag/pipelines/factory.py` (assembly), `pipelines/hybrid.py`
+  (routing, fusion, rerank), `experiments/run.py` (retrieval runs),
+  `experiments/answer.py` (answer runs).
+- ViDoRe ships parsed Markdown per page, so no PDF parser (Docling/MinerU) is wired
+  in, and the knowledge graph is disabled (`NoKGLLM`).
+- Generation builds its own prompt rather than RAG-Anything's `vlm_enhanced` query,
+  because the context is a fused page list.
 
-## 评测
+## Evaluation
 
-- **数据**：ViDoRe v3 公开数据集，每页同时提供页面图片和已抽取的 Markdown 文本，并附有人工核验的参考答案。开发时先用 1–2 个子集。
-- **检索**：NDCG@10、Recall@k。
-- **答案**：LLM 评分器与参考答案比对；人工抽查一部分样本，校验评分器的准确性。
-- **出处**：引用页码是否正确；可选评测区域定位。
-- **成本**：每页索引存储、建索引时的模型调用次数与费用、每次查询的延迟与费用。
-- **对照组**：纯文本（RAG-Anything 原样）、纯视觉、混合、混合加重排；另做消融，逐一去掉某一路，衡量它的贡献。
-- **排行榜适配**：实现 `vidore_benchmark` 的 `BasePipeline`，即 `index(corpus_ids, corpus_images, corpus_texts)` 和 `search(query_ids, queries) -> {query_id: {corpus_id: score}}`。
+- Data: ViDoRe v3 (page images, parsed Markdown, human-checked answers). Default
+  subset `vidore/vidore_v3_hr`, English queries.
+- Retrieval: NDCG@10, Recall@k (pytrec_eval, same as vidore-benchmark).
+- Answers: LLM judge against reference answers, calibrated with a human-checked
+  sample (agreement, Cohen's kappa).
+- Citations: page in context and quote found on the page.
+- Cost: index storage per page, model calls, tokens, latency.
+- Comparisons: the improvement ladder (each change kept only if a paired
+  significance test on the dev set says it helps) and leave-one-out ablations of
+  the final system.
+- Leaderboard: `adapters/vidore_pipeline.py` implements vidore-benchmark's
+  `BasePipeline`.
 
-## 阶段
+## Phases
 
-1. **基线**：写 ViDoRe 适配器，让 RAG-Anything 原样跑通一个子集，记录检索、答案和成本。
-2. **纯视觉**：实现视觉页面索引，对全部页面做视觉检索。
-3. **混合**：实现页面分析器、关键词检索、三路检索和融合，比较效果与存储、成本。
-4. **完善**：加入重排和引用校验，做失败分析，并整理结果用于排行榜提交。
+1–4 are done: baseline, visual retrieval, hybrid with routing and fusion,
+reranking / citation check / failure analysis.
 
-## 约定
+Phases 5–9 are in `PLAN.md`. Before starting a phase, read only that phase's
+section of `PLAN.md`.
 
-- 使用 Python 和 `uv` 管理环境。新代码放在 `src/mmrag/`，测试放在 `tests/`。
-- `reference/` 下是上游仓库的只读克隆（RAG-Anything、vidore-benchmark），只用来阅读，不修改，也不提交。需要复用时通过依赖包导入。
-- 建知识图谱时，每个文本块和每张图都要调用一次大模型，成本高。开发时只用子集；文本基线可以先用 LightRAG 的纯向量模式。
-- 每次实验的配置与结果写入 `results/<日期>_<名称>/`，必须能复现。数字只来自实际运行的结果。
-- 密钥只放在 `.env` 中，不进入代码和提交记录。
+`DECISIONS.md` records each choice made during implementation and its reason. It is
+written in Chinese for the project owner. Add a short entry for every non-obvious
+choice, and remove or update entries that are no longer true.
+
+## Design principles
+
+- **Simple first.** Write the smallest design that does the job of the current
+  phase. No abstractions, options or extension points for hypothetical future needs.
+- **Fit the existing shape.** Express new work through the interfaces that exist:
+  retrievers implement `index` / `search`, rerankers implement
+  `rerank(query, candidates, top_n)`, options are `PipelineSpec` fields. Add a new
+  interface only when the existing ones cannot express the change, and record why.
+- **Fix the design, don't patch around it.** When something does not fit, change
+  the design (refactor) instead of adding special cases, flags or try/except
+  workarounds. When new code replaces old code, delete the old code; never keep two
+  implementations of the same thing.
+- **One switch per technique.** Each technique from `PLAN.md` is a single option,
+  off by default, so it can be compared with the run without it.
+- **Small, clear modules.** One responsibility per module; short functions; names
+  that say what they do; comments explain why, not what.
+- **Few dependencies.** Add one only when it saves real work; note it in
+  `DECISIONS.md`. No LangChain / LlamaIndex.
+- **Keep docs true.** After a change, update `AGENTS.md`, `PLAN.md` and
+  `DECISIONS.md` wherever they no longer match the code.
+
+## Conventions
+
+- Python 3.12 with `uv`. Code in `src/mmrag/`, tests in `tests/`. Run `ruff check`,
+  `ruff format` and the full test suite before every commit.
+- Tests run offline with stand-in models; no test may call a paid API.
+- **Do not run anything that calls a paid API** (embeddings, VLM, judge, LLM rerank,
+  agent) unless the user explicitly asks for that run.
+- Each experiment writes its config and results to `results/<date>_<name>/` and
+  must be reproducible. Numbers come only from actual runs.
+- The visual model never runs in the project `.venv` (colpali-engine and
+  RAG-Anything need incompatible `transformers`). Pages and dataset queries are
+  encoded on Kaggle (`notebooks/encode_colqwen.ipynb`) into `data/vectors/<subset>/`;
+  the local visual environment `D:\rag_cache\venv_gpu` runs the agreement check and
+  the run-time query encoder. Everything else runs in the project `.venv` on CPU.
+- `reference/` holds read-only upstream clones (RAG-Anything, vidore-benchmark).
+  Read them, never modify or commit them.
+- Secrets live only in `.env`, never in code, docs or commits.

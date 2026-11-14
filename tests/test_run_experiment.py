@@ -7,7 +7,6 @@ import pytest
 from helpers import FakeLateEncoder, HashingEmbedder
 from mmrag.adapters.vidore_pipeline import MMRAGPipeline
 from mmrag.data.vidore import load_vidore_subset
-from mmrag.experiments.common import read_jsonl
 from mmrag.experiments.run import build_parser, run_experiment
 
 
@@ -76,28 +75,12 @@ def test_visual_pipeline_finds_the_chart_page(run_args):
     assert cost["index_storage_bytes_per_page"] > 0
 
 
-def test_export_then_encode_then_retrieve_from_files(dataset_dir, tmp_path, run_args):
-    """The two-environment flow: export pages, encode them, retrieve from the saved vectors."""
-    from mmrag.experiments.export_pages import export_pages
-    from mmrag.visual.encode_cli import encode_pages
-    from mmrag.visual.store import MultiVectorStore, text_key
+def test_encode_then_retrieve_from_files(dataset_dir, tmp_path, run_args):
+    """The two-environment flow: encode the subset to files, retrieve from the saved vectors."""
+    from mmrag.visual.encode_cli import encode_dataset
 
-    pages_dir = tmp_path / "pages"
-    stats = export_pages(str(dataset_dir), pages_dir, language="english")
-    assert stats == {"pages": 6, "images_written": 6, "queries": 4}
-    assert export_pages(str(dataset_dir), pages_dir)["images_written"] == 0  # re-run is a no-op
-    assert (pages_dir / "images" / "3.png").exists()
-
-    encoder = FakeLateEncoder()
-    ids, embeddings = encode_pages(encoder, pages_dir / "images", batch_size=4)
-    assert ids == ["0", "1", "2", "3", "4", "5"]
-    visual_dir = tmp_path / "visual"
-    MultiVectorStore.from_embeddings(ids, embeddings, "float16").save(visual_dir / "pages.npz")
-    queries = [q["query"] for q in read_jsonl(pages_dir / "queries.jsonl")]
-    MultiVectorStore.from_embeddings(
-        [text_key(q) for q in queries], encoder.encode_queries(queries), "float16"
-    ).save(visual_dir / "queries.npz")
-
+    visual_dir = tmp_path / "vectors"
+    encode_dataset(FakeLateEncoder(), str(dataset_dir), visual_dir, model="fake")
     out = run_experiment(run_args("--pipeline", "visual", "--visual-store", str(visual_dir)))
     assert read(out / "metrics.json")["recall_10"] == 1.0
     assert read(out / "cost.json")["after_index"]["pages_encoded_now"] == 0

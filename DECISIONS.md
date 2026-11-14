@@ -9,8 +9,8 @@
   - 答案生成用的 VLM：`LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`。
   - 可选：`JUDGE_MODEL`（评分器）、`RERANK_MODEL`（LLM 重排），不填就用 `LLM_MODEL`。
   - 所有远程模型都走 OpenAI 兼容接口，换服务商只改 `.env`。
-- **`.env.example` 没有提交**。它现在的 `EMBEDDING_API_KEY` 一行里是一个真实样式的密钥（`sk-proj-` 开头）。AGENTS.md 规定密钥不进提交记录，所以我没有把这个文件加入任何提交，也没有改动它。需要你把密钥挪到 `.env`、把模板里的值清空后再提交。
-- **两个 Python 环境**：项目 `.venv`（Python 3.12，CPU）负责除视觉编码外的全部代码和测试；`D:\rag_cache\venv_gpu` 只负责用 ColSmol 把页面和查询编码成多向量并写到磁盘。理由：GPU 环境里没有 pyarrow、pytrec_eval 等依赖，我不想改动它；编码是唯一需要 GPU 的步骤，结果落盘后其余流程都不需要 GPU。
+- **`.env.example`** 是提交进仓库的模板，所有密钥一栏都留空。
+- **两个 Python 环境**：项目 `.venv`（Python 3.12，CPU）负责除视觉模型外的全部代码和测试；视觉环境 `D:\rag_cache\venv_gpu` 只负责运行视觉模型（编码、向量一致性检查、运行时查询编码）。两者不能合并：colpali-engine 0.3.18 要求 transformers ≥ 5.3，而 RAG-Anything 依赖的 MinerU 要求 transformers < 5，`uv add colpali-engine` 无法求解。视觉环境里除模型依赖外只多装了 pyarrow，用来直接读数据集。
 
 ## 阶段 1：基线
 
@@ -30,13 +30,8 @@
 
 ## 阶段 2：纯视觉
 
-- **视觉模型**：默认 `vidore/colSmol-256M`（已在 `D:\rag_cache\hf`）。4GB 显存放得下，半精度推理。编码器按模型名选 colpali-engine 里的类，换成 ColQwen2 / ColPali 只改 `--visual-model`。
-- **编码和检索分开**：
-  1. `mmrag.experiments.export_pages`（项目环境）把页面图和查询导出成普通文件，放在 `data/pages/<子集>/`。
-  2. `mmrag.visual.encode_cli`（GPU 环境）编码成 `pages.npz` 和 `queries.npz`。
-  3. 检索、评测在项目环境里读这两个文件，不需要 GPU 和模型。
-  - 查询向量按查询文本的哈希存取；遇到没编码过的查询会直接报错，不会悄悄跳过。
-  - 代价是页面图在磁盘上多存一份（hr 子集约 440 MB，在 git 忽略的 `data/` 下，编码完可以删）。
+- **视觉模型**：全程只用 `vidore/colqwen2.5-v0.2`（理由见 `PLAN.md` 的 Fixed setup）。`vidore/colSmol-256M`（已在 `D:\rag_cache\hf`，4GB 显存放得下）只用于本地试跑代码，不出结果。编码器按模型名选 colpali-engine 里的类。
+- **编码和检索分开**：`mmrag.visual.encode_cli` 在有视觉模型的环境里直接读数据集，编码成 `pages.npz` 和 `queries.npz`；检索、评测在项目环境里只读这两个文件，不需要 GPU 和模型。查询向量按查询文本的哈希存取；遇到没编码过的查询默认直接报错，不会悄悄跳过。
 - **编码结果只存一份 float16、不池化的向量**，池化和更粗的量化在建检索索引时再做。这样一次 GPU 编码可以服务所有压缩设置的对比，也能给重排保留全精度向量。
 - **存储格式**：自己实现的 `MultiVectorStore`，所有页的向量拼成一个数组加每页的偏移，存成一个 `.npz`。没有引入向量数据库：1110 页规模下暴力 MaxSim 足够快，而且每页占多少字节可以直接读出来，这正是要比较的指标。
 - **压缩选项**：
@@ -98,3 +93,15 @@
 - 页面分析器的阈值没有按检索效果调过。
 - 没有做真正的 PDF 解析（Docling/MinerU）：ViDoRe 已经给了每页的 Markdown。对任意 PDF 提问还需要接上解析这一步。
 - 没有建知识图谱。`TextBaselinePipeline` 可以传入真实的 LLM 函数来建图，但没测过。
+
+## 阶段 5 之前：用 ColQwen2.5 编码
+
+- **编码入口只有一个**：`mmrag.visual.encode_cli` 的 `encode_dataset`。Kaggle 笔记本 `notebooks/encode_colqwen.ipynb` 和本地命令行调用的是同一个函数，笔记本里只有配置、安装、调用、校验和打包。原来"先把页面导出成图片文件、再编码"的 `export_pages` 已删除：它存在的唯一理由是视觉环境读不了 parquet，装上 pyarrow 后就不需要两套输入了，磁盘上也不用多存一份页面图。
+- **断点续跑**：页面每编码 64 页存一个分片（`<out>/parts/`），全部完成后合并成按语料顺序排列的 `pages.npz` 并删掉分片。重跑时已在分片或 `pages.npz` 里的页、已在 `queries.npz` 里的查询都跳过。分片和成品里记录了模型名，换模型写同一个目录会直接报错，不会把两种模型的向量混在一起。注意：Kaggle 的 "Save & Run All" 每次都是全新会话，续跑只在同一个交互会话里有用。
+- **NaN / inf 检查放在编码器里**（`ColpaliEncoder`），每个批次都查，出现就抛 `FloatingPointError`。这样笔记本、命令行、查询进程都受保护，不用各查一遍。
+- **精度由 `dtype` 参数决定**：GPU 默认 float16，CPU 默认 float32，本地查询编码显式用 bfloat16。原来的 `half` 开关表达不了 bfloat16，已替换。
+- **Kaggle 上只装 `colpali-engine==0.3.18`**，不装整个项目（那会拉进 RAG-Anything 和 MinerU）。版本和本地视觉环境一致，保证两边的预处理相同。其余依赖用 Kaggle 自带的。
+- **运行时新查询的编码走子进程**（`mmrag.visual.query_worker`）：因为上面说的依赖冲突，模型进不了项目环境，所以项目进程用视觉环境的 Python 启动一个常驻子进程，模型只加载一次，CPU、bfloat16，通过标准输入输出传请求，向量用 `MultiVectorStore` 文件交回。开关是 `--local-query-encoder`（默认关），需要在 `.env` 里设 `VISUAL_PYTHON`，可选 `VISUAL_HF_HOME`。关着的时候行为不变：没编码过的查询报错。子进程记录模型加载时间和每次调用的延迟。
+- **一致性检查**（`mmrag.visual.check_vectors`）：本地 CPU bfloat16 重新编码几页和几条查询，与云端向量逐 token 算余弦，每一项的平均余弦都高于 0.99 才算通过，结果写入 `results/<日期>_vector_check_<子集>/check.json`。token 数不一致直接判不通过。
+- **本地试跑（ColSmol-256M，不是正式结果）**：笔记本的单元格在本地视觉环境里按顺序执行，hr 前 6 页加全部 318 条查询，产物能被检索代码读取；把页数改成 10 重跑，只新编码 4 页。用同一批向量跑一致性检查：GPU float16 对 CPU bfloat16，3 页 5 条查询，平均余弦最低 0.9988。经子进程编码新查询：加载模型约 30 秒，首次调用 2.3 秒，之后 0.24 秒。ColQwen2.5 的对应数字要等 Kaggle 跑完后再测。
+- **没有验证的**：笔记本没有在 Kaggle 上实际跑过；`vidore_v3_finance_en` 和 ColQwen2.5 模型本地都没有下载。

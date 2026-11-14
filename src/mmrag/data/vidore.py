@@ -64,7 +64,9 @@ class VidoreSubset:
             return
         for path in sorted((self.snapshot_dir / "corpus").glob("*.parquet")):
             parquet = pq.ParquetFile(path)
-            for batch in parquet.iter_batches(batch_size=batch_size, columns=["corpus_id", "image"]):
+            for batch in parquet.iter_batches(
+                batch_size=batch_size, columns=["corpus_id", "image"]
+            ):
                 for cid, image in zip(batch.column("corpus_id"), batch.column("image")):
                     cid = str(cid.as_py())
                     if wanted is None or cid in wanted:
@@ -118,6 +120,7 @@ def resolve_snapshot(dataset_name: str) -> Path:
     if path.is_dir():
         return path
     from huggingface_hub import snapshot_download
+    from huggingface_hub.errors import LocalEntryNotFoundError
 
     try:
         return Path(
@@ -125,7 +128,7 @@ def resolve_snapshot(dataset_name: str) -> Path:
                 dataset_name, repo_type="dataset", allow_patterns=_PATTERNS, local_files_only=True
             )
         )
-    except Exception:
+    except LocalEntryNotFoundError:  # not cached yet: download it
         return Path(snapshot_download(dataset_name, repo_type="dataset", allow_patterns=_PATTERNS))
 
 
@@ -157,7 +160,9 @@ def load_vidore_subset(
     """
     snapshot = resolve_snapshot(dataset_name)
     query_rows = _read(snapshot, "queries", ["query_id", "query", "language", "answer"])
-    qrel_rows = _read(snapshot, "qrels", ["query_id", "corpus_id", "score", "bounding_boxes", "content_type"])
+    qrel_rows = _read(
+        snapshot, "qrels", ["query_id", "corpus_id", "score", "bounding_boxes", "content_type"]
+    )
     corpus_rows = _read(
         snapshot, "corpus", ["corpus_id", "markdown", "doc_id", "page_number_in_doc"]
     )

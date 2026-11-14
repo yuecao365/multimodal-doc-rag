@@ -89,12 +89,14 @@ class ColpaliEncoder:
         with torch.inference_mode():
             out = self.model(**batch)  # (batch, tokens, dim), padded
         mask = batch["attention_mask"].bool()
-        if not torch.isfinite(out).all():
+        # Drop padding rows so each item keeps only its real token vectors. Only those are
+        # checked: padding rows are discarded anyway.
+        vectors = [out[i][mask[i]] for i in range(out.shape[0])]
+        if not all(torch.isfinite(v).all() for v in vectors):
             raise FloatingPointError(
                 f"{self.model_name} produced NaN or inf in {self.dtype}; these vectors are unusable"
             )
-        # Drop padding rows so each page keeps only its real token vectors.
-        return [out[i][mask[i]].float().cpu().numpy() for i in range(out.shape[0])]
+        return [v.float().cpu().numpy() for v in vectors]
 
     def encode_images(self, images: list[Any]) -> list[np.ndarray]:
         result: list[np.ndarray] = []

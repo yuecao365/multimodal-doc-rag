@@ -32,6 +32,45 @@ class FailingEncoder(FakeLateEncoder):
         return super().encode_images(images)
 
 
+class OverflowingEncoder(FakeLateEncoder):
+    """fp16 overflow stand-in: ``batch_only`` pages fail only together with other pages
+    (padding), ``always`` pages fail even alone."""
+
+    def __init__(self, batch_only=(), always=()) -> None:
+        super().__init__()
+        self.batch_only, self.always = set(batch_only), set(always)
+
+    def encode_images(self, images):
+        ids = {str(np.asarray(im)[0, 0, 0]) for im in images}
+        if ids & self.always or (len(images) > 1 and ids & self.batch_only):
+            raise FloatingPointError("non-finite")
+        return super().encode_images(images)
+
+
+def test_overflowing_batches_are_retried_page_by_page(dataset_dir, tmp_path):
+    data = load_vidore_subset(str(dataset_dir), n_queries=None)
+    fallback = FakeLateEncoder()
+    stats = encode_pages(
+        OverflowingEncoder(batch_only={"1"}, always={"2"}), data, tmp_path, "fake",
+        batch_size=4, fallback=lambda: fallback,
+    )  # fmt: skip
+    assert stats["fallback_pages"] == ["2"] and fallback.image_calls == 1
+    clean = tmp_path / "clean"
+    encode_pages(FakeLateEncoder(), data, clean, "fake", batch_size=4)
+    got, want = (
+        MultiVectorStore.load(tmp_path / "pages.npz"),
+        MultiVectorStore.load(clean / "pages.npz"),
+    )
+    assert got.ids == want.ids
+    assert all(np.array_equal(got.get(p), want.get(p)) for p in got.ids)
+
+
+def test_an_overflowing_page_without_fallback_is_named(dataset_dir, tmp_path):
+    data = load_vidore_subset(str(dataset_dir), n_queries=None)
+    with pytest.raises(FloatingPointError, match="page 2"):
+        encode_pages(OverflowingEncoder(always={"2"}), data, tmp_path, "fake", batch_size=4)
+
+
 def test_output_is_what_the_retriever_loads(dataset_dir, tmp_path):
     out = tmp_path / "vectors" / "toy"
     meta = encode_dataset(FakeLateEncoder(), str(dataset_dir), out, model="fake", batch_size=4)

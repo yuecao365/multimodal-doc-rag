@@ -26,6 +26,7 @@ import argparse
 import json
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -51,8 +52,15 @@ def encode_pages(
     limit: int | None = None,
     batch_size: int = 4,
     part_pages: int = 64,
+    fallback: Callable[[], Any] | None = None,
 ) -> dict:
-    """Write ``pages.npz``; returns counts and timing of the pages encoded in this call."""
+    """Write ``pages.npz``; returns counts and timing of the pages encoded in this call.
+
+    fp16 can overflow on some pages. A batch with non-finite vectors is re-encoded one
+    page at a time (no padding); a page that still overflows is encoded by the encoder
+    ``fallback()`` builds (same model at higher precision, created on first use). Without
+    a fallback such a page is an error. Pages that needed the fallback are reported.
+    """
     final, parts_dir = out_dir / "pages.npz", out_dir / "parts"
     parts_dir.mkdir(parents=True, exist_ok=True)
     saved = sorted(parts_dir.glob("*.npz")) + ([final] if final.exists() else [])
@@ -65,6 +73,22 @@ def encode_pages(
     ids: list[str] = []
     vectors: list = []
     n_parts, encoded, seconds = len(saved), 0, 0.0
+    fallback_encoder: Any | None = None
+    fallback_pages: list[str] = []
+
+    def encode_one(cid: str, image: Any) -> Any:
+        nonlocal fallback_encoder
+        try:
+            return encoder.encode_images([image])[0]
+        except FloatingPointError as error:
+            if fallback is None:
+                raise FloatingPointError(f"page {cid}: {error}") from error
+        if fallback_encoder is None:
+            print("loading the fallback encoder for pages that overflow", flush=True)
+            fallback_encoder = fallback()
+        fallback_pages.append(cid)
+        print(f"page {cid}: non-finite vectors, encoded with the fallback encoder", flush=True)
+        return fallback_encoder.encode_images([image])[0]
 
     def save_part() -> None:
         nonlocal n_parts
@@ -78,7 +102,10 @@ def encode_pages(
     def encode(batch: list[tuple[str, Any]]) -> None:
         nonlocal encoded, seconds
         started = time.perf_counter()
-        embeddings = encoder.encode_images([image for _, image in batch])
+        try:
+            embeddings = encoder.encode_images([image for _, image in batch])
+        except FloatingPointError:
+            embeddings = [encode_one(cid, image) for cid, image in batch]
         took = time.perf_counter() - started
         ids.extend(cid for cid, _ in batch)
         vectors.extend(embeddings)
@@ -114,6 +141,7 @@ def encode_pages(
         "encoded_now": encoded,
         "encode_seconds": round(seconds, 1),
         "seconds_per_page": round(seconds / encoded, 3) if encoded else None,
+        "fallback_pages": fallback_pages,
     }
 
 
@@ -150,6 +178,7 @@ def encode_dataset(
     language: str | None = "english",
     limit: int | None = None,
     batch_size: int = 4,
+    fallback: Callable[[], Any] | None = None,
 ) -> dict:
     """Encode all pages (or the first ``limit``) and all queries of one subset."""
     out_dir = Path(out_dir)
@@ -161,7 +190,7 @@ def encode_dataset(
         "device": getattr(encoder, "device", None),
         "dtype": getattr(encoder, "dtype", None),
         "batch_size": batch_size,
-        "pages": encode_pages(encoder, data, out_dir, model, limit, batch_size),
+        "pages": encode_pages(encoder, data, out_dir, model, limit, batch_size, fallback=fallback),
         "queries": encode_queries(encoder, data.queries, out_dir, model),
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

@@ -101,3 +101,50 @@ def test_export_then_encode_then_retrieve_from_files(dataset_dir, tmp_path, run_
     out = run_experiment(run_args("--pipeline", "visual", "--visual-store", str(visual_dir)))
     assert read(out / "metrics.json")["recall_10"] == 1.0
     assert read(out / "cost.json")["after_index"]["pages_encoded_now"] == 0
+
+
+def test_bm25_pipeline(run_args):
+    out = run_experiment(run_args("--pipeline", "bm25"))
+    assert read(out / "metrics.json")["recall_10"] == 0.75  # same blind spot as the text route
+
+
+def test_hybrid_pipeline_routes_pages_and_records_every_route(run_args):
+    out = run_experiment(
+        # The toy pages are a sentence long and their images are synthetic, so route on
+        # text alone with a threshold that fits them.
+        run_args("--pipeline", "hybrid", "--min-text-chars", "20", "--no-analyzer-images"),
+        embedder=HashingEmbedder(),
+        visual_encoder=FakeLateEncoder(),
+    )
+    assert read(out / "metrics.json")["recall_10"] == 1.0
+    routes = read(out / "page_routes.json")
+    assert routes["3"] == "visual" and routes["0"] == "text"
+    for name in ("text", "bm25", "visual", "fused"):
+        assert (out / f"run_{name}.json").exists()
+    cost = read(out / "cost.json")
+    summary = cost["after_index"]["routing_summary"]
+    assert summary["n_text"] + summary["n_visual"] == 6
+    # Only the visual pages were encoded, not the whole corpus.
+    assert cost["after_index"]["pages_encoded_now"] == summary["n_visual"] < 6
+    assert set(cost["after_search"]["storage_bytes_by_route"]) == {"text", "bm25", "visual"}
+    assert "route_runs" not in cost["after_search"]
+
+
+def test_hybrid_ablation_without_visual_route(run_args):
+    out = run_experiment(
+        run_args(
+            "--pipeline",
+            "hybrid",
+            "--routes",
+            "text,bm25",
+            "--name",
+            "no_visual",
+            "--min-text-chars",
+            "20",
+            "--no-analyzer-images",
+        ),
+        embedder=HashingEmbedder(),
+    )
+    assert out.name == "2000-01-01_no_visual"
+    assert read(out / "metrics.json")["recall_10"] == 0.75
+    assert read(out / "config.json")["pipeline"]["routes"] == "text,bm25"

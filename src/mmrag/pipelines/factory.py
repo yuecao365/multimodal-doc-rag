@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-PIPELINES = ("text", "visual")
+PIPELINES = ("text", "bm25", "visual", "hybrid")
 
 
 @dataclass
@@ -28,6 +28,15 @@ class PipelineSpec:
     visual_store: str = ""
     quantization: str = "float16"
     pool_factor: int = 1
+    # hybrid
+    routes: str = "text,bm25,visual"  # comma-separated; drop one for an ablation
+    routing: str = "analyzer"  # "analyzer": route each page; "all": every route gets every page
+    rrf_k: int = 60
+    candidates: int = 50  # pages taken from each route before fusion
+    analyzer_images: bool = True  # let the page analyzer look at page images
+    min_text_chars: int = 300
+    max_table_ratio: float = 0.4
+    max_color_ratio: float = 0.06
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -94,6 +103,52 @@ def build_visual_route(
     )
 
 
+def build_bm25_route(work_dir: Path):
+    from mmrag.retrieval.bm25 import BM25Retriever
+
+    return BM25Retriever(store_path=work_dir / "bm25" / "index.json")
+
+
+def build_hybrid(
+    spec: PipelineSpec,
+    work_dir: Path,
+    embedder: Any | None = None,
+    data: Any | None = None,
+    visual_encoder: Any | None = None,
+    visual_pages: Any | None = None,
+):
+    from mmrag.analysis.page_analyzer import AnalyzerConfig, PageAnalyzer
+    from mmrag.pipelines.hybrid import ROUTES, HybridPipeline
+
+    routes = [r.strip() for r in spec.routes.split(",") if r.strip()]
+    unknown = set(routes) - set(ROUTES)
+    if unknown:
+        raise ValueError(f"Unknown routes {sorted(unknown)}; choose from {ROUTES}")
+    analyzer = PageAnalyzer(
+        AnalyzerConfig(
+            min_text_chars=spec.min_text_chars,
+            max_table_ratio=spec.max_table_ratio,
+            max_color_ratio=spec.max_color_ratio,
+        )
+    )
+    return HybridPipeline(
+        text=build_text_route(spec, work_dir, embedder) if "text" in routes else None,
+        bm25=build_bm25_route(work_dir) if "bm25" in routes else None,
+        visual=(
+            build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
+            if "visual" in routes
+            else None
+        ),
+        analyzer=analyzer,
+        routing=spec.routing,
+        rrf_k=spec.rrf_k,
+        candidates=spec.candidates,
+        image_provider=data.iter_page_images if data is not None else None,
+        analyzer_uses_images=spec.analyzer_images,
+        work_dir=work_dir,
+    )
+
+
 def build_pipeline(
     spec: PipelineSpec,
     work_dir: str | Path,
@@ -114,4 +169,8 @@ def build_pipeline(
         return build_text_route(spec, work_dir, embedder)
     if spec.pipeline == "visual":
         return build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
+    if spec.pipeline == "bm25":
+        return build_bm25_route(work_dir)
+    if spec.pipeline == "hybrid":
+        return build_hybrid(spec, work_dir, embedder, data, visual_encoder, visual_pages)
     raise ValueError(f"Unknown pipeline '{spec.pipeline}'. Choose from {PIPELINES}")

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 TRACKED_PACKAGES = (
     "raganything", "lightrag-hku", "pyarrow", "pytrec-eval-terrier", "openai", "numpy",
-    "scipy", "jieba", "torch", "colpali-engine", "transformers",
+    "scipy", "snowballstemmer", "torch", "colpali-engine", "transformers",
 )  # fmt: skip
 
 

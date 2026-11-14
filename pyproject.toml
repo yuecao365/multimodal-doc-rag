@@ -12,11 +12,11 @@ dependencies = [
     "pillow>=10.0",
     "numpy",
     "scipy",
-    "jieba>=0.42",
     "openai>=1.0",
     "python-dotenv>=1.0",
     # Same API as pytrec_eval (which vidore-benchmark uses), with prebuilt Windows wheels.
     "pytrec-eval-terrier>=0.5.6",
+    "snowballstemmer>=2.2",
 ]
 
 [dependency-groups]

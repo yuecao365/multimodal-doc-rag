@@ -28,6 +28,8 @@ class PipelineSpec:
     visual_store: str = ""
     quantization: str = "float16"
     pool_factor: int = 1
+    # keyword route: analyzer language (stemmer, stopwords); "french" for finance_fr
+    bm25_language: str = "english"
     # hybrid
     routes: str = "text,bm25,visual"  # comma-separated; drop one for an ablation
     routing: str = "analyzer"  # "analyzer": route each page; "all": every route gets every page
@@ -106,10 +108,10 @@ def build_visual_route(
     )
 
 
-def build_bm25_route(work_dir: Path):
+def build_bm25_route(spec: PipelineSpec, work_dir: Path):
     from mmrag.retrieval.bm25 import BM25Retriever
 
-    return BM25Retriever(store_path=work_dir / "bm25" / "index.json")
+    return BM25Retriever(store_path=work_dir / "bm25" / "index.json", language=spec.bm25_language)
 
 
 def build_reranker(
@@ -165,7 +167,7 @@ def build_hybrid(
     )
     return HybridPipeline(
         text=build_text_route(spec, work_dir, embedder) if "text" in routes else None,
-        bm25=build_bm25_route(work_dir) if "bm25" in routes else None,
+        bm25=build_bm25_route(spec, work_dir) if "bm25" in routes else None,
         visual=(
             build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
             if "visual" in routes
@@ -205,7 +207,7 @@ def build_pipeline(
     if spec.pipeline == "visual":
         return build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
     if spec.pipeline == "bm25":
-        return build_bm25_route(work_dir)
+        return build_bm25_route(spec, work_dir)
     if spec.pipeline == "hybrid":
         return build_hybrid(
             spec, work_dir, embedder, data, visual_encoder, visual_pages, rerank_client

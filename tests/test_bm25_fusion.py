@@ -6,7 +6,7 @@ from mmrag.retrieval.fusion import ranked_ids, rrf_fuse
 DOCS = {
     "a": "The TX-900 projector must be booked through the travel desk.",
     "b": "A projector and a screen are available in every meeting room.",
-    "c": "差旅报销需要在出差结束后三十天内提交发票。",
+    "c": "Employees may claim travel expenses within thirty days of returning.",
     "d": "Invoice INV-2024/0031 was paid on 3 March. Total: 1,250.00 EUR.",
     "e": "",
 }
@@ -23,10 +23,19 @@ def test_tokenize_keeps_compound_codes_and_their_parts():
     assert tokenize("Model TX-900, v1.2") == ["model", "tx-900", "tx", "900", "v1.2", "v1", "2"]
 
 
-def test_tokenize_segments_chinese_into_words():
-    tokens = tokenize("差旅报销需要提交发票")
-    assert "报销" in tokens and "发票" in tokens
-    assert all(len(t) >= 1 for t in tokens)
+def test_tokenize_stems_words_and_drops_stopwords_but_not_numbers():
+    assert tokenize("The employees are claiming expenses for 2024") == [
+        "employe",
+        "claim",
+        "expens",
+        "2024",
+    ]
+
+
+def test_tokenize_uses_the_stemmer_of_the_corpus_language():
+    assert tokenize("les politiques", "french") == ["le", "polit"]
+    with pytest.raises(ValueError):
+        tokenize("text", "klingon")
 
 
 def test_exact_identifier_beats_the_generic_page(bm25):
@@ -35,10 +44,12 @@ def test_exact_identifier_beats_the_generic_page(bm25):
     assert run["q"]["a"] > 2 * run["q"]["b"]
 
 
-def test_invoice_number_and_chinese_queries(bm25):
-    run = bm25.search(["inv", "zh", "none"], ["INV-2024/0031", "发票 报销", "zebra crossing"])
+def test_invoice_number_and_inflected_queries(bm25):
+    run = bm25.search(
+        ["inv", "stem", "none"], ["INV-2024/0031", "employee expense claim", "zebra crossing"]
+    )
     assert ranked_ids(run["inv"]) == ["d"]
-    assert ranked_ids(run["zh"]) == ["c"]
+    assert ranked_ids(run["stem"]) == ["c"]  # matches "Employees ... claim ... expenses"
     assert run["none"] == {}  # no page shares a term: nothing is returned
 
 
@@ -49,6 +60,10 @@ def test_top_k_and_persistence(bm25, tmp_path):
     query = ["who books the TX-900 projector"]
     assert loaded.search(["q"], query) == bm25.search(["q"], query)
     assert loaded.storage_bytes() == path.stat().st_size
+    assert (
+        BM25Retriever.load(BM25Retriever(language="french").save(tmp_path / "fr.json")).language
+        == "french"
+    )
 
 
 def test_rrf_rewards_agreement_between_routes():

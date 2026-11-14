@@ -1,26 +1,45 @@
-"""Text-only baseline: RAG-Anything indexing + LightRAG naive (vector-only) retrieval.
+"""Text route: RAG-Anything indexing + LightRAG naive (vector-only) retrieval.
 
 Each page's Markdown is inserted as its own document whose ``file_path`` is the
-page's corpus_id, so every retrieved chunk maps back to exactly one page.
-
-The class has the same ``index`` / ``search`` shape as
-``vidore_benchmark.pipeline_evaluation.BasePipeline``.
+page's corpus_id, so every retrieved chunk maps back to exactly one page. Used
+on its own this is the Stage 1 text-only baseline; inside the hybrid pipeline it
+is the text route.
 """
 
 from __future__ import annotations
 
 import asyncio
 import atexit
+import hashlib
 import logging
+from pathlib import Path
 from typing import Any
 
 from mmrag.models import NoKGLLM
+from mmrag.retrieval.base import Run, dir_size
 from mmrag.retrieval.pages import chunks_to_page_scores
 
 logger = logging.getLogger(__name__)
 
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def _shared_loop() -> asyncio.AbstractEventLoop:
+    """One event loop for every synchronous call in this process.
+
+    LightRAG keeps process-wide locks and worker tasks bound to the loop they
+    were created on, so a second pipeline on a fresh loop silently retrieves
+    nothing. The loop is therefore shared and never closed.
+    """
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP
+
 
 class TextBaselinePipeline:
+    name = "text"
+
     def __init__(
         self,
         working_dir: str,
@@ -34,6 +53,8 @@ class TextBaselinePipeline:
         llm: Any | None = None,
     ) -> None:
         self.working_dir = working_dir
+        digest = hashlib.md5(str(Path(working_dir).resolve()).encode()).hexdigest()[:10]
+        self.workspace = f"ws_{digest}"
         self.embedder = embedder
         self.embedding_dim = embedding_dim
         self.embedding_max_tokens = embedding_max_tokens
@@ -41,10 +62,10 @@ class TextBaselinePipeline:
         self.chunk_top_k = chunk_top_k
         self.chunk_token_size = chunk_token_size
         self.chunk_overlap_token_size = chunk_overlap_token_size
+        # Default: no knowledge graph. Pass a real LLM function to build one.
         self.llm = llm or NoKGLLM()
         self.skipped_empty: list[str] = []
         self._rag = None
-        self._loop: asyncio.AbstractEventLoop | None = None
 
     # -- setup ---------------------------------------------------------------
 
@@ -70,6 +91,9 @@ class TextBaselinePipeline:
                 func=self.embedder,
             ),
             lightrag_kwargs={
+                # LightRAG shares in-process state per workspace name, not per directory.
+                # A distinct workspace per index keeps two pipelines in one process apart.
+                "workspace": self.workspace,
                 "chunk_token_size": self.chunk_token_size,
                 "chunk_overlap_token_size": self.chunk_overlap_token_size,
                 "entity_extract_max_gleaning": 0,
@@ -112,43 +136,33 @@ class TextBaselinePipeline:
                 display_stats=False,
             )
             if i % 50 == 0 or i == total:
-                logger.info("indexed %d/%d pages", i, total)
+                logger.info("text route: indexed %d/%d pages", i, total)
 
     # -- search --------------------------------------------------------------
 
     async def asearch(
-        self, query_ids: list[str], queries: list[str]
-    ) -> dict[str, dict[str, float]]:
+        self, query_ids: list[str], queries: list[str], top_k: int | None = None
+    ) -> Run:
         from lightrag import QueryParam
 
         rag = await self._ensure_rag()
+        top_k = top_k or self.top_k_pages
+        # A page can contribute several chunks; fetch enough chunks to fill top_k pages.
+        chunk_top_k = max(self.chunk_top_k, top_k * 3)
         param = QueryParam(
             mode="naive",
-            chunk_top_k=self.chunk_top_k,
+            chunk_top_k=chunk_top_k,
             enable_rerank=False,
             # Do not let the answer-context token budget drop retrieved chunks.
-            max_total_tokens=self.chunk_top_k * (self.chunk_token_size + 200) + 10_000,
+            max_total_tokens=chunk_top_k * (self.chunk_token_size + 200) + 10_000,
         )
-        run: dict[str, dict[str, float]] = {}
+        run: Run = {}
         for qid, query in zip(query_ids, queries):
             result = await rag.lightrag.aquery_data(query, param=param)
             chunks = (result.get("data") or {}).get("chunks") or []
             ranked = [(str(c.get("file_path") or ""), None) for c in chunks]
-            run[qid] = chunks_to_page_scores(ranked, self.top_k_pages)
+            run[qid] = chunks_to_page_scores(ranked, top_k)
         return run
-
-    # -- sync wrappers (BasePipeline shape) ------------------------------------
-
-    def _run(self, coro):
-        if self._loop is None:
-            self._loop = asyncio.new_event_loop()
-        return self._loop.run_until_complete(coro)
-
-    def index(self, corpus_ids, corpus_images, corpus_texts, dataset_name: str | None = None):
-        return self._run(self.aindex(corpus_ids, corpus_images, corpus_texts, dataset_name))
-
-    def search(self, query_ids, queries):
-        return self._run(self.asearch(query_ids, queries))
 
     async def aclose(self) -> None:
         if self._rag is not None:
@@ -158,11 +172,27 @@ class TextBaselinePipeline:
             atexit.unregister(self._rag.close)
             self._rag = None
 
+    # -- sync interface (Retriever / BasePipeline shape) -------------------------
+
+    def _run(self, coro):
+        return _shared_loop().run_until_complete(coro)
+
+    def index(self, corpus_ids, corpus_images, corpus_texts, dataset_name: str | None = None):
+        return self._run(self.aindex(corpus_ids, corpus_images, corpus_texts, dataset_name))
+
+    def search(self, query_ids, queries, top_k: int | None = None) -> Run:
+        return self._run(self.asearch(query_ids, queries, top_k))
+
+    def close(self) -> None:
+        self._run(self.aclose())
+
+    def storage_bytes(self) -> int:
+        return dir_size(self.working_dir)
+
 
 def _status_name(doc_status: Any) -> str:
-    status = (
-        doc_status.get("status")
-        if isinstance(doc_status, dict)
-        else getattr(doc_status, "status", "")
-    )
+    if isinstance(doc_status, dict):
+        status = doc_status.get("status")
+    else:
+        status = getattr(doc_status, "status", "")
     return str(getattr(status, "value", status)).lower()

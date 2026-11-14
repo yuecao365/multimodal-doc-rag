@@ -1,4 +1,4 @@
-from mmrag.data.vidore import build_qrels, sample_query_ids
+from mmrag.data.vidore import build_qrels, load_vidore_subset, sample_query_ids
 
 
 def test_build_qrels_filters_and_casts():
@@ -28,3 +28,24 @@ def test_sample_is_deterministic_and_order_independent():
     assert len(first) == 50 and len(set(first)) == 50
     assert first == again
     assert first != other
+
+
+def test_loads_subset_from_local_parquet(dataset_dir):
+    data = load_vidore_subset(str(dataset_dir), n_queries=2, language="english", seed=0)
+    assert len(data.query_ids) == 2 and set(data.query_ids) <= {"10", "11", "12"}
+    assert data.corpus_ids == ["0", "1", "2", "3", "4", "5"]
+    assert data.corpus_texts[3] == ""
+    assert set(data.qrels) == set(data.query_ids)
+    assert all(data.answers[q] for q in data.query_ids)
+    assert data.doc_ids[0] == "handbook" and data.page_numbers[5] == 5
+    qid = data.query_ids[0]
+    assert data.bboxes[qid][next(iter(data.qrels[qid]))][0]["x2"] == 56
+
+
+def test_all_queries_and_page_images(dataset_dir):
+    data = load_vidore_subset(str(dataset_dir), n_queries=None, language=None)
+    assert len(data.query_ids) == 4
+    images = data.load_page_images(["1", "4"])
+    assert set(images) == {"1", "4"}
+    assert images["1"].size == (64, 80)
+    assert [cid for cid, _ in data.iter_page_images()] == data.corpus_ids

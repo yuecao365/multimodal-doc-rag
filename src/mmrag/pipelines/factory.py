@@ -37,6 +37,9 @@ class PipelineSpec:
     min_text_chars: int = 300
     max_table_ratio: float = 0.4
     max_color_ratio: float = 0.06
+    # reranking of the fused candidates (hybrid only)
+    rerank: str = "none"  # "none", "maxsim" (full-precision late interaction) or "llm"
+    rerank_top_n: int = 20
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -109,6 +112,34 @@ def build_bm25_route(work_dir: Path):
     return BM25Retriever(store_path=work_dir / "bm25" / "index.json")
 
 
+def build_reranker(
+    spec: PipelineSpec,
+    visual_encoder: Any | None = None,
+    visual_pages: Any | None = None,
+    rerank_client: Any | None = None,
+):
+    """The second-stage reranker named by ``spec.rerank``, or None."""
+    from mmrag.rerank.rerankers import LLMReranker, MaxSimReranker
+
+    if spec.rerank == "none":
+        return None
+    if spec.rerank == "llm":
+        if rerank_client is None:
+            from mmrag.models import ChatClient
+
+            rerank_client = ChatClient.from_env("RERANK_MODEL", max_tokens=400)
+        return LLMReranker(rerank_client)
+    if spec.rerank == "maxsim":
+        if visual_pages is None or visual_encoder is None:
+            if not spec.visual_store:
+                raise ValueError(
+                    "--rerank maxsim needs --visual-store: full-precision vectors of every page"
+                )
+            visual_pages, visual_encoder = load_precomputed(spec.visual_store)
+        return MaxSimReranker(visual_encoder, visual_pages)
+    raise ValueError(f"Unknown reranker '{spec.rerank}'. Choose none, maxsim or llm")
+
+
 def build_hybrid(
     spec: PipelineSpec,
     work_dir: Path,
@@ -116,6 +147,7 @@ def build_hybrid(
     data: Any | None = None,
     visual_encoder: Any | None = None,
     visual_pages: Any | None = None,
+    rerank_client: Any | None = None,
 ):
     from mmrag.analysis.page_analyzer import AnalyzerConfig, PageAnalyzer
     from mmrag.pipelines.hybrid import ROUTES, HybridPipeline
@@ -143,6 +175,8 @@ def build_hybrid(
         routing=spec.routing,
         rrf_k=spec.rrf_k,
         candidates=spec.candidates,
+        reranker=build_reranker(spec, visual_encoder, visual_pages, rerank_client),
+        rerank_top_n=spec.rerank_top_n,
         image_provider=data.iter_page_images if data is not None else None,
         analyzer_uses_images=spec.analyzer_images,
         work_dir=work_dir,
@@ -156,6 +190,7 @@ def build_pipeline(
     data: Any | None = None,
     visual_encoder: Any | None = None,
     visual_pages: Any | None = None,
+    rerank_client: Any | None = None,
     **_,
 ):
     """Return an object with index / search / storage_bytes (see retrieval.base.Retriever).
@@ -172,5 +207,7 @@ def build_pipeline(
     if spec.pipeline == "bm25":
         return build_bm25_route(work_dir)
     if spec.pipeline == "hybrid":
-        return build_hybrid(spec, work_dir, embedder, data, visual_encoder, visual_pages)
+        return build_hybrid(
+            spec, work_dir, embedder, data, visual_encoder, visual_pages, rerank_client
+        )
     raise ValueError(f"Unknown pipeline '{spec.pipeline}'. Choose from {PIPELINES}")

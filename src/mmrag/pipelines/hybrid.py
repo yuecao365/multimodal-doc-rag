@@ -121,6 +121,8 @@ class HybridPipeline:
         corpus_ids = [str(c) for c in corpus_ids]
         corpus_texts = [t or "" for t in corpus_texts]
         self._route_pages(corpus_ids, corpus_images, corpus_texts)
+        if self.reranker is not None and hasattr(self.reranker, "prepare"):
+            self.reranker.prepare(corpus_ids, corpus_texts, self.image_provider)
         text_of = dict(zip(corpus_ids, corpus_texts))
         text_ids = [p for p in corpus_ids if self.page_routes[p] in ("text", "both")]
         visual_ids = [p for p in corpus_ids if self.page_routes[p] in ("visual", "both")]
@@ -181,6 +183,7 @@ class HybridPipeline:
     # -- reporting -----------------------------------------------------------
 
     def storage_bytes(self) -> int:
+        """First-stage index size. A reranker's own storage is reported in ``info()``."""
         return sum(route.storage_bytes() for route in self.routes.values())
 
     def info(self) -> dict:

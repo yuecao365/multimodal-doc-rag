@@ -58,7 +58,11 @@ design changes, each measured, raises it to Y on held-out data.
   - Queries that only exist at run time (agent rewrites, HyDE) are encoded locally
     by the same model on CPU in bfloat16 (16 GB RAM; measure the latency).
   - Check once that cloud fp16 and local bf16 vectors agree (cosine > 0.99 on a few
-    pages and queries); record the result.
+    pages and queries); record the result. Result: queries agree (mean cosine
+    0.999, same top-10 pages 98.5% of the time on hr); pages do not (0.92–0.98).
+    Pages are never encoded locally, so only the query result matters; see
+    `DECISIONS.md`. On this machine the local encoder takes 5–10 s per question and
+    about 33 s per passage-length text (the model does not fit in free RAM).
 - English queries, seed 0, all queries of the subset for every retrieval and answer
   run.
 - Break every result down by `query_types` and by number of relevant pages
@@ -113,6 +117,8 @@ design changes, each measured, raises it to Y on held-out data.
 - Why: users' wording can differ from the documents' wording.
 - How: generate a short hypothetical answer passage and search with it, as an
   option of the one-shot pipeline. The agent (phase 7) reuses the same function.
+  The text and BM25 routes search with question + passage; the visual route keeps
+  the question (encoding 318 passages locally would take about three hours).
 - Trade-off: one extra LLM call; the rewrite can drift from the question.
 - Ladder candidate.
 

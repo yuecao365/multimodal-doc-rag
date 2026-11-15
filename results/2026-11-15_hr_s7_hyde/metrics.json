@@ -1,0 +1,111 @@
+{
+  "n_queries": 318,
+  "n_corpus_pages": 1110,
+  "n_pages_empty_text": 12,
+  "n_pages_duplicate_text": 9,
+  "n_queries_with_fewer_than_top_k": 0,
+  "ndcg_cut_10": 0.6010220379239515,
+  "recall_10": 0.6392434920860621,
+  "breakdown": {
+    "ndcg_cut_10": {
+      "query_type": {
+        "boolean": {
+          "n": 41,
+          "mean": 0.5155
+        },
+        "compare-contrast": {
+          "n": 61,
+          "mean": 0.632
+        },
+        "enumerative": {
+          "n": 61,
+          "mean": 0.6425
+        },
+        "extractive": {
+          "n": 87,
+          "mean": 0.641
+        },
+        "multi-hop": {
+          "n": 30,
+          "mean": 0.6901
+        },
+        "numerical": {
+          "n": 84,
+          "mean": 0.6051
+        },
+        "open-ended": {
+          "n": 88,
+          "mean": 0.5701
+        }
+      },
+      "relevant_pages": {
+        "1": {
+          "n": 71,
+          "mean": 0.6524
+        },
+        "10+": {
+          "n": 52,
+          "mean": 0.5153
+        },
+        "2-4": {
+          "n": 123,
+          "mean": 0.6367
+        },
+        "5-9": {
+          "n": 72,
+          "mean": 0.5513
+        }
+      }
+    },
+    "recall_10": {
+      "query_type": {
+        "boolean": {
+          "n": 41,
+          "mean": 0.5887
+        },
+        "compare-contrast": {
+          "n": 61,
+          "mean": 0.6945
+        },
+        "enumerative": {
+          "n": 61,
+          "mean": 0.648
+        },
+        "extractive": {
+          "n": 87,
+          "mean": 0.7435
+        },
+        "multi-hop": {
+          "n": 30,
+          "mean": 0.7241
+        },
+        "numerical": {
+          "n": 84,
+          "mean": 0.7097
+        },
+        "open-ended": {
+          "n": 88,
+          "mean": 0.5181
+        }
+      },
+      "relevant_pages": {
+        "1": {
+          "n": 71,
+          "mean": 0.831
+        },
+        "10+": {
+          "n": 52,
+          "mean": 0.2983
+        },
+        "2-4": {
+          "n": 123,
+          "mean": 0.7215
+        },
+        "5-9": {
+          "n": 72,
+          "mean": 0.5558
+        }
+      }
+    }
+  }
+}

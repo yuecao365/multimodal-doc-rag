@@ -2,8 +2,9 @@
 
 Users' wording can differ from the documents' wording. The model writes a short
 passage that could answer the question; the search text is the question followed
-by that passage, for every route. Passages are kept on disk, so a question is
-rewritten once and later runs reuse it.
+by that passage. The text and keyword routes search with it; the visual route keeps
+the question (see ``pipelines.hybrid.REWRITTEN_ROUTES``). Passages are kept on disk,
+so a question is rewritten once and later runs reuse it.
 """
 
 from __future__ import annotations

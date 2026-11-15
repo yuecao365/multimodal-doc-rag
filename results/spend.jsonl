@@ -1,3 +1,8 @@
 {"time": "2026-11-14T22:05:36", "run": "2026-11-14_hr_baseline", "what": "index + search", "usd": 0.01881}
 {"time": "2026-11-14T22:06:29", "run": "2026-11-14_hr_baseline", "what": "answers (20 queries)", "usd": 0.02419}
 {"time": "2026-11-14T22:09:40", "run": "2026-11-14_hr_baseline", "what": "answers (318 queries)", "usd": 0.34067}
+{"time": "2026-11-14T22:40:17", "run": "2026-11-14_hr_pilot_rerank_llm", "what": "index + search", "usd": 0.01425}
+{"time": "2026-11-14T22:51:16", "run": "pilot_contextual_headers", "what": "21 pages", "usd": 0.00512}
+{"time": "2026-11-14T23:02:55", "run": "2026-11-14_hr_s4_rerank_llm", "what": "index + search", "usd": 0.21449}
+{"time": "2026-11-14T23:42:10", "run": "2026-11-14_hr_x_ctx_no_rerank", "what": "index + search", "usd": 0.59677}
+{"time": "2026-11-15T01:31:35", "run": "2026-11-15_hr_s7_hyde", "what": "index + search", "usd": 0.04301}

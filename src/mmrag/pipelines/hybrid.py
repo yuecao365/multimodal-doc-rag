@@ -32,6 +32,10 @@ from mmrag.retrieval.fusion import rrf_fuse
 logger = logging.getLogger(__name__)
 
 ROUTES = ("text", "bm25", "visual")
+# A rewrite (HyDE) imitates document text, so it is used by the routes that match
+# text against text. The visual route matches the question against page images and
+# keeps the question; its model is trained on short questions.
+REWRITTEN_ROUTES = ("text", "bm25")
 ImageProvider = Callable[[list[str]], Iterable[tuple[str, Any]]]
 
 
@@ -71,7 +75,7 @@ class HybridPipeline:
         self.rerank_top_n = rerank_top_n
         # Applied to the page texts the text and keyword routes index (chunk headers).
         self.text_transform = text_transform
-        # Turns each question into the text the routes search with (HyDE).
+        # Turns each question into the text the text and keyword routes search with (HyDE).
         self.rewriter = rewriter
         self.search_texts: dict[str, str] = {}
         self.image_provider = image_provider
@@ -185,7 +189,8 @@ class HybridPipeline:
         self.route_runs = {}
         for name, route in self.routes.items():
             t0 = time.perf_counter()
-            self.route_runs[name] = route.search(query_ids, search_texts, top_k=depth)
+            texts = search_texts if name in REWRITTEN_ROUTES else list(queries)
+            self.route_runs[name] = route.search(query_ids, texts, top_k=depth)
             self.timings[f"search_{name}_seconds"] = round(time.perf_counter() - t0, 2)
 
         fused: Run = {}

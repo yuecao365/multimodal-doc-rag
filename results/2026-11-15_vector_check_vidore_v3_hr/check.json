@@ -1,0 +1,204 @@
+{
+  "dataset": "vidore/vidore_v3_hr",
+  "vectors": "data\\vectors\\vidore_v3_hr",
+  "stored": {
+    "model": "vidore/colqwen2.5-v0.2"
+  },
+  "local": {
+    "device": "cpu",
+    "dtype": "bfloat16"
+  },
+  "threshold": 0.99,
+  "worst_mean_cosine": {
+    "page": 0.92187,
+    "query": 0.99893
+  },
+  "agree": {
+    "page": false,
+    "query": true
+  },
+  "mean_query_top10_same": 0.985,
+  "items": [
+    {
+      "kind": "page",
+      "id": "0",
+      "tokens": 747,
+      "mean_cosine": 0.92187,
+      "min_cosine": -0.1235
+    },
+    {
+      "kind": "page",
+      "id": "554",
+      "tokens": 747,
+      "mean_cosine": 0.97995,
+      "min_cosine": 0.12683
+    },
+    {
+      "kind": "page",
+      "id": "1109",
+      "tokens": 770,
+      "mean_cosine": 0.97789,
+      "min_cosine": 0.05492
+    },
+    {
+      "kind": "query",
+      "id": "What impact did the shifts in temporary contract usage from 2018 to 2023 have on the difference in employment stability between mobile EU workers and citizens of the host countries?",
+      "tokens": 49,
+      "mean_cosine": 0.99972,
+      "min_cosine": 0.99798,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What drives the rise in women's workforce involvement in EU nations such as Germany?",
+      "tokens": 26,
+      "mean_cosine": 0.99962,
+      "min_cosine": 0.99798,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Compare how well voucher schemes and tax-related incentives have worked in decreasing informal domestic labor across European nations",
+      "tokens": 29,
+      "mean_cosine": 0.99967,
+      "min_cosine": 0.9985,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What is the projected financial range required for workforce training investments to support the EU's green transition by 2030?",
+      "tokens": 35,
+      "mean_cosine": 0.99973,
+      "min_cosine": 0.99802,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Do countries with higher education investments have higher re-employment rates among older workers in the EU?",
+      "tokens": 29,
+      "mean_cosine": 0.99893,
+      "min_cosine": 0.98375,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "List the countries in the EU where more than 15% of domestic care work is reported to be undocumented, based on available studies.",
+      "tokens": 38,
+      "mean_cosine": 0.9993,
+      "min_cosine": 0.98862,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Analyze how the green transition impacts labour market dynamics in EU transforming sectors",
+      "tokens": 24,
+      "mean_cosine": 0.99904,
+      "min_cosine": 0.98243,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Which populations are highlighted as particularly vulnerable to the combined impacts of digital and green transformations in Europe?",
+      "tokens": 29,
+      "mean_cosine": 0.99951,
+      "min_cosine": 0.99839,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What differences exist between the legal safeguards for care workers in Portugal and Hungary, and where are social protection shortfalls still present?",
+      "tokens": 35,
+      "mean_cosine": 0.99958,
+      "min_cosine": 0.99777,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Can increasing labor force participation among underutilized groups fully offset the projected annual loss of 2 million workers by 2040?",
+      "tokens": 38,
+      "mean_cosine": 0.99946,
+      "min_cosine": 0.99647,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "How do the long-term effects of labour market investments compare to housing investments in reducing regional disparities in the EU?",
+      "tokens": 32,
+      "mean_cosine": 0.99935,
+      "min_cosine": 0.98769,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "Is underemployment among younger workers (20\u201334) higher than among older workers (55\u201364) in the EU labor market?",
+      "tokens": 41,
+      "mean_cosine": 0.99963,
+      "min_cosine": 0.99916,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "How do trends in regional income convergence differ between countries like Austria and France compared to Czechia and Sweden, and what factors explain these differences?",
+      "tokens": 38,
+      "mean_cosine": 0.9995,
+      "min_cosine": 0.99456,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Does the Regional Green Transition Vulnerability Index show that wealthier regions reliant on polluting sectors face greater risk than poorer regions with comparable industrial profiles?",
+      "tokens": 39,
+      "mean_cosine": 0.99971,
+      "min_cosine": 0.99854,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "Was there a decline in underemployment among part-time workers in the EU from 2013 to 2023?",
+      "tokens": 37,
+      "mean_cosine": 0.99963,
+      "min_cosine": 0.99564,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "How do the working conditions of declared versus undeclared care workers in the EU differ in terms of job security and access to social protections?",
+      "tokens": 37,
+      "mean_cosine": 0.99977,
+      "min_cosine": 0.99867,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Specify the ISCO codes used to define domestic workers in the EU Labour Force Survey data.",
+      "tokens": 28,
+      "mean_cosine": 0.99961,
+      "min_cosine": 0.99547,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "impact of Individual Learning Accounts on workforce development in Europe",
+      "tokens": 20,
+      "mean_cosine": 0.99975,
+      "min_cosine": 0.99945,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "As of mid-2024, have real wages in the EU returned to their levels before the pandemic?",
+      "tokens": 33,
+      "mean_cosine": 0.99974,
+      "min_cosine": 0.99815,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Which social indicators showed evidence of beta convergence in the EU between 2007 and 2023 according to the regression analysis in the 2024 Employment and Social Developments in Europe report?",
+      "tokens": 54,
+      "mean_cosine": 0.99943,
+      "min_cosine": 0.99646,
+      "top10_same": 1.0
+    }
+  ]
+}

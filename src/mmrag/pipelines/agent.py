@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from mmrag.models import image_part, text_part
+from mmrag.pipelines.hybrid import REWRITTEN_ROUTES
 from mmrag.retrieval.base import Run, top_k_of
 from mmrag.retrieval.fusion import ranked_ids
 from mmrag.tracing import span
@@ -129,7 +130,9 @@ class AgentSearch:
         return json.dumps(rows, ensure_ascii=False)
 
     def _search(self, route: str, query: str) -> str:
-        text = self.pipeline.rewriter([query])[0] if self.pipeline.rewriter else query
+        text = query
+        if self.pipeline.rewriter is not None and route in REWRITTEN_ROUTES:
+            text = self.pipeline.rewriter([query])[0]
         with self._routes_lock:
             run = self.pipeline.routes[route].search(["q"], [text], top_k=self.results_per_search)
         return self._listing(run["q"], query)

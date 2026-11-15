@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440">
+<rect width="760" height="440" fill="white"/>
+<text x="70" y="22" font-family="sans-serif" font-size="12" fill="#374151" font-weight="bold">Index size vs retrieval quality (vidore/vidore_v3_hr)</text>
+<line x1="70" x2="590" y1="380.0" y2="380.0" stroke="#e5e7eb"/><text x="62" y="384.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.40</text>
+<line x1="70" x2="590" y1="312.0" y2="312.0" stroke="#e5e7eb"/><text x="62" y="316.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.45</text>
+<line x1="70" x2="590" y1="244.0" y2="244.0" stroke="#e5e7eb"/><text x="62" y="248.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.50</text>
+<line x1="70" x2="590" y1="176.0" y2="176.0" stroke="#e5e7eb"/><text x="62" y="180.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.55</text>
+<line x1="70" x2="590" y1="108.0" y2="108.0" stroke="#e5e7eb"/><text x="62" y="112.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.60</text>
+<line x1="70" x2="590" y1="40.0" y2="40.0" stroke="#e5e7eb"/><text x="62" y="44.0" text-anchor="end" font-family="sans-serif" font-size="12" fill="#374151">0.65</text>
+<line x1="126.9" x2="126.9" y1="40" y2="380" stroke="#f3f4f6"/><text x="126.9" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">5</text>
+<line x1="210.2" x2="210.2" y1="40" y2="380" stroke="#f3f4f6"/><text x="210.2" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">10</text>
+<line x1="293.5" x2="293.5" y1="40" y2="380" stroke="#f3f4f6"/><text x="293.5" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">20</text>
+<line x1="403.6" x2="403.6" y1="40" y2="380" stroke="#f3f4f6"/><text x="403.6" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">50</text>
+<line x1="487.0" x2="487.0" y1="40" y2="380" stroke="#f3f4f6"/><text x="487.0" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">100</text>
+<line x1="570.3" x2="570.3" y1="40" y2="380" stroke="#f3f4f6"/><text x="570.3" y="398" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">200</text>
+<text x="330.0" y="426" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">index size, KB per page (log scale)</text><text transform="translate(18 210.0) rotate(-90)" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#374151">NDCG@10</text>
+<path d="M232.0,359.2 L243.6,306.0 L263.4,269.8 L280.3,260.9 L320.1,253.9" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="232.0" cy="359.2" r="3.5" fill="#2563eb"/><text x="237.0" y="353.2" font-family="sans-serif" font-size="9" fill="#2563eb">128 dims</text>
+<circle cx="243.6" cy="306.0" r="3.5" fill="#2563eb"/><text x="248.6" y="300.0" font-family="sans-serif" font-size="9" fill="#2563eb">256 dims</text>
+<circle cx="263.4" cy="269.8" r="3.5" fill="#2563eb"/><text x="268.4" y="263.8" font-family="sans-serif" font-size="9" fill="#2563eb">512 dims</text>
+<circle cx="280.3" cy="260.9" r="3.5" fill="#2563eb"/><text x="285.3" y="254.9" font-family="sans-serif" font-size="9" fill="#2563eb">768 dims</text>
+<circle cx="320.1" cy="253.9" r="3.5" fill="#2563eb"/><text x="325.1" y="247.9" font-family="sans-serif" font-size="9" fill="#2563eb">full dims</text>
+<rect x="606" y="41" width="12" height="12" fill="#2563eb"/><text x="624" y="51" font-family="sans-serif" font-size="12" fill="#374151">text</text>
+<path d="M97.7,149.9 L146.2,152.2 L229.4,140.1 L347.0,114.7 L395.6,118.3 L430.3,113.2 L478.9,117.8 L479.0,106.1 L562.3,106.8" fill="none" stroke="#d97706" stroke-width="2"/>
+<circle cx="97.7" cy="149.9" r="3.5" fill="#d97706"/><text x="102.7" y="143.9" font-family="sans-serif" font-size="9" fill="#d97706">binary, pool 3</text>
+<circle cx="146.2" cy="152.2" r="3.5" fill="#d97706"/><text x="151.2" y="146.2" font-family="sans-serif" font-size="9" fill="#d97706">binary, pool 2</text>
+<circle cx="229.4" cy="140.1" r="3.5" fill="#d97706"/><text x="234.4" y="134.1" font-family="sans-serif" font-size="9" fill="#d97706">binary, pool 1</text>
+<circle cx="347.0" cy="114.7" r="3.5" fill="#d97706"/><text x="352.0" y="108.7" font-family="sans-serif" font-size="9" fill="#d97706">int8, pool 3</text>
+<circle cx="395.6" cy="118.3" r="3.5" fill="#d97706"/><text x="400.6" y="112.3" font-family="sans-serif" font-size="9" fill="#d97706">int8, pool 2</text>
+<circle cx="430.3" cy="113.2" r="3.5" fill="#d97706"/><text x="435.3" y="107.2" font-family="sans-serif" font-size="9" fill="#d97706">float16, pool 3</text>
+<circle cx="478.9" cy="117.8" r="3.5" fill="#d97706"/><text x="483.9" y="111.8" font-family="sans-serif" font-size="9" fill="#d97706">float16, pool 2</text>
+<circle cx="479.0" cy="106.1" r="3.5" fill="#d97706"/><text x="484.0" y="100.1" font-family="sans-serif" font-size="9" fill="#d97706">int8, pool 1</text>
+<circle cx="562.3" cy="106.8" r="3.5" fill="#d97706"/><text x="567.3" y="100.8" font-family="sans-serif" font-size="9" fill="#d97706">float16, pool 1</text>
+<rect x="606" y="61" width="12" height="12" fill="#d97706"/><text x="624" y="71" font-family="sans-serif" font-size="12" fill="#374151">visual</text>
+<path d="M97.7,110.4 L146.2,109.4 L229.4,110.6 L347.0,108.0 L395.6,107.3 L430.3,108.0 L478.9,107.3 L479.0,106.8 L562.3,106.8" fill="none" stroke="#059669" stroke-width="2"/>
+<circle cx="97.7" cy="110.4" r="3.5" fill="#059669"/><text x="102.7" y="104.4" font-family="sans-serif" font-size="9" fill="#059669">binary, pool 3</text>
+<circle cx="146.2" cy="109.4" r="3.5" fill="#059669"/><text x="151.2" y="103.4" font-family="sans-serif" font-size="9" fill="#059669">binary, pool 2</text>
+<circle cx="229.4" cy="110.6" r="3.5" fill="#059669"/><text x="234.4" y="104.6" font-family="sans-serif" font-size="9" fill="#059669">binary, pool 1</text>
+<circle cx="347.0" cy="108.0" r="3.5" fill="#059669"/><text x="352.0" y="102.0" font-family="sans-serif" font-size="9" fill="#059669">int8, pool 3</text>
+<circle cx="395.6" cy="107.3" r="3.5" fill="#059669"/><text x="400.6" y="101.3" font-family="sans-serif" font-size="9" fill="#059669">int8, pool 2</text>
+<circle cx="430.3" cy="108.0" r="3.5" fill="#059669"/><text x="435.3" y="102.0" font-family="sans-serif" font-size="9" fill="#059669">float16, pool 3</text>
+<circle cx="478.9" cy="107.3" r="3.5" fill="#059669"/><text x="483.9" y="101.3" font-family="sans-serif" font-size="9" fill="#059669">float16, pool 2</text>
+<circle cx="479.0" cy="106.8" r="3.5" fill="#059669"/><text x="484.0" y="100.8" font-family="sans-serif" font-size="9" fill="#059669">int8, pool 1</text>
+<circle cx="562.3" cy="106.8" r="3.5" fill="#059669"/><text x="567.3" y="100.8" font-family="sans-serif" font-size="9" fill="#059669">float16, pool 1</text>
+<rect x="606" y="81" width="12" height="12" fill="#059669"/><text x="624" y="91" font-family="sans-serif" font-size="12" fill="#374151">visual + rerank</text>
+</svg>

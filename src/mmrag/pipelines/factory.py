@@ -57,7 +57,8 @@ class PipelineSpec:
     # One-sentence context written by an LLM in front of every chunk before indexing
     # (dense and BM25); hybrid only.
     contextual_headers: bool = False
-    # Search with the question plus a hypothetical answer passage (HyDE); hybrid only.
+    # The text and keyword routes search with the question plus a hypothetical answer
+    # passage (HyDE); hybrid only.
     hyde: bool = False
     # A model searches again with its own wording and picks the pages to answer from
     # (hybrid only). Limits are per question.

@@ -113,6 +113,10 @@ def test_hyde_switch_rewrites_for_routes_but_not_for_the_reranker(run_dir):
     )
     search_texts = read_json(out / "search_texts.json")
     assert search_texts["10"].endswith("\nhypothetical passage")
+    # The visual route keeps the question: its ranking is the same as without HyDE.
+    plain = run_dir("plain", "--rerank", "cross-encoder", rerank_scorer=overlap_scorer)
+    visual = [read_json(d / "route_runs.json.gz")["visual"] for d in (out, plain)]
+    assert visual[0] == visual[1]
     assert all("hypothetical" not in q for q in seen)
     assert read_json(out / "cost.json")["after_search"]["rewrite"]["passages_written"] == 4
 

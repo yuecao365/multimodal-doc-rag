@@ -254,6 +254,7 @@ class ChatClient:
             messages=messages,
             max_completion_tokens=self.max_tokens,
             reasoning_effort=self.reasoning_effort,
+            seed=0,  # the only handle on reproducibility these models offer
             **kwargs,
         )
         usage = resp.usage

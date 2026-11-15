@@ -4,5 +4,11 @@
   {"step": "ref", "change": "Visual alone (ColQwen2.5, every page)", "run": "2026-11-14_hr_ref_visual", "kind": "reference"},
   {"step": "1", "change": "+ BM25, fused with RRF", "run": "2026-11-14_hr_s1_text_bm25", "against": "2026-11-14_hr_baseline", "kind": "quality", "metric": "ndcg"},
   {"step": "2", "change": "+ visual route over every page, RRF of three routes", "run": "2026-11-14_hr_s2_three_routes", "against": "2026-11-14_hr_s1_text_bm25", "kind": "quality", "metric": "ndcg"},
-  {"step": "3", "change": "Per-page routing: text pages to the text index, visual pages to the visual index (efficiency)", "run": "2026-11-14_hr_s3_routed", "against": "2026-11-14_hr_s2_three_routes", "kind": "efficiency", "metric": "ndcg"}
+  {"step": "3", "change": "Per-page routing: text pages to the text index, visual pages to the visual index (efficiency)", "run": "2026-11-14_hr_s3_routed", "against": "2026-11-14_hr_s2_three_routes", "kind": "efficiency", "metric": "ndcg"},
+  {"step": "4a", "change": "Rerank top 20 with full-precision MaxSim (best of the three rerankers)", "run": "2026-11-14_hr_s4_rerank_maxsim", "against": "2026-11-14_hr_s2_three_routes", "kind": "quality", "metric": "ndcg"},
+  {"step": "4b", "change": "Rerank top 20 with an LLM (gpt-6-luna, listwise, text excerpts)", "run": "2026-11-14_hr_s4_rerank_llm", "against": "2026-11-14_hr_s2_three_routes", "kind": "quality", "metric": "ndcg"},
+  {"step": "4c", "change": "Rerank top 20 with a text cross-encoder (bge-reranker-base)", "run": "2026-11-14_hr_s4_rerank_cross_encoder", "against": "2026-11-14_hr_s2_three_routes", "kind": "quality", "metric": "ndcg"},
+  {"step": "5", "change": "Contextual chunk headers before dense and BM25 indexing", "run": "2026-11-14_hr_x_ctx_no_rerank", "against": "2026-11-14_hr_s2_three_routes", "kind": "quality", "metric": "ndcg"},
+  {"step": "6", "change": "Index compression (efficiency): text vectors cut to 512 dims; visual vectors int8, pooled 3x", "run": "2026-11-15_hr_s6_compressed", "against": "2026-11-14_hr_x_ctx_no_rerank", "kind": "efficiency", "metric": "ndcg"},
+  {"step": "7", "change": "HyDE: text and BM25 routes search with the question plus a hypothetical passage", "run": "2026-11-15_hr_s7_hyde", "against": "2026-11-15_hr_s6_compressed", "kind": "quality", "metric": "ndcg"}
 ]

@@ -27,5 +27,7 @@
 | 2026-11-15T06:01:24 | 2026-11-15_fin_loo_no_bm25 | index + search | 0.2268 | 5.7797 |
 | 2026-11-15T06:13:56 | 2026-11-15_fin_loo_no_visual | index + search | 0.2323 | 6.0120 |
 | 2026-11-15T06:14:56 | 2026-11-15_fin_loo_no_compression | index + search | 0.2325 | 6.2444 |
+| 2026-11-15T10:47:57 | cache_check | prompt-cache check for contextual headers | 0.0047 | 6.2491 |
+| 2026-11-15T10:49:25 | cache_check | prompt-cache check for contextual headers (2) | 0.0032 | 6.2523 |
 
-Total: 6.24 USD of a 25 USD cap.
+Total: 6.25 USD of a 25 USD cap.

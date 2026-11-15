@@ -7,8 +7,9 @@ sentence is put in front of the chunk for both the dense and the BM25 index.
 The model sees the chunk's page and its neighbouring pages, not the whole
 document: a document's pages are taken three at a time, and every chunk of those
 three pages gets the same three pages as context. The pages come first in the
-prompt and the chunk last, so the calls for one group share a prefix that the
-API caches. Sentences are kept on disk and written once.
+prompt and the chunk last, so the calls for one group share a prefix. (The endpoint
+used for the experiments did not cache it: it only caches a prompt that extends an
+entire earlier prompt. See DECISIONS.md.) Sentences are kept on disk and written once.
 """
 
 from __future__ import annotations
@@ -100,8 +101,8 @@ class ContextualHeaders:
         texts = dict(zip(corpus_ids, corpus_texts))
         groups = self._groups(corpus_ids, texts)
         known = len(self.headers)
-        # Groups run in parallel; the calls of one group run in order, so the later
-        # ones find the shared pages in the prompt cache.
+        # Groups run in parallel; the calls of one group run in order, so that a
+        # prefix cache, where the API has one, can serve the shared pages.
         with ThreadPoolExecutor(max_workers=self.workers) as pool:
             done = list(pool.map(lambda g: self._write_group(g, texts), groups))
         self.written += len(self.headers) - known

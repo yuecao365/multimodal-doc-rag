@@ -1,13 +1,22 @@
 # Multimodal Document RAG
 
 Question answering over the pages of PDF reports. The system finds the pages that
-hold the evidence, a vision language model answers from them, and every answer
-cites pages with quotes that are checked in code.
+hold the evidence, and a vision language model answers from them, citing pages
+with quotes. Code then checks each citation (the cited page was shown to the
+model, and the quote is on that page) and the pass rate is reported; not every
+answer passes (88% do on the held-out set).
 
-It is built on [RAG-Anything](https://github.com/HKUDS/RAG-Anything) / LightRAG and
-adds what they lack: retrieval over whole page images (ColQwen2.5, late
-interaction), fusion of that with dense text and BM25 retrieval, and an agent that
-searches again and chooses the pages to answer from.
+It is built on [RAG-Anything](https://github.com/HKUDS/RAG-Anything) / LightRAG,
+which retrieve over parsed text and over text descriptions of images and tables.
+This project adds three things:
+
+1. **Page-image retrieval.** Every page is indexed as an image: ColQwen2.5 turns
+   it into a set of vectors, and a question is scored against them with MaxSim
+   (late interaction). No text has to be parsed for a page to be found.
+2. **Fusion.** That visual route is fused by rank (RRF) with LightRAG's dense
+   text retrieval and a BM25 index.
+3. **A retrieval agent** that reads the fused results, searches again in its own
+   words, opens pages, and chooses the pages the answer is written from.
 
 The project is organised as an **improvement ladder**: start from a plain text-RAG
 baseline, add one change at a time, and keep a change only if a paired
@@ -56,6 +65,17 @@ flowchart LR
 
 - A page is shown to the answering model as text or as an image, decided per page
   by a rule-based page analyzer (tables, charts and scans go in as images).
+- Models:
+
+  | role | model |
+  |---|---|
+  | answer generation, retrieval agent, contextual headers (also the LLM rerank and HyDE switches) | `gpt-6-luna` |
+  | judge of answers | `gpt-6.1-terra` |
+  | text embeddings | `text-embedding-3-small`, cut to 512 dimensions |
+  | page-image and query multi-vectors | `vidore/colqwen2.5-v0.2` |
+
+  The judge is a different and stronger model than the generator (a larger model,
+  ten times the price per token), so no model grades its own answers.
 - Every piece is a switch in `PipelineSpec` (`src/mmrag/pipelines/factory.py`), off
   by default, so each can be measured against the run without it.
 
@@ -87,6 +107,18 @@ Answer score is the mean of an LLM judge's verdict against the reference answer
 (correct 1, partially correct 0.5, incorrect 0). Answers were judged only where
 they decide something: the baseline, the best system without the agent, and the
 final system.
+
+**Latency per question** on `hr` (retrieval + answer generation; API calls from
+one laptop, answers generated 8 at a time, the agent run 6 questions at a time):
+
+| system | retrieval | agent | answer | total |
+|---|---|---|---|---|
+| baseline (step 0) | 0.3 s | | 2.5 s | 2.8 s |
+| best one-shot system (step 6) | 0.2 s | | 2.9 s | 3.1 s |
+| final system with the agent (step 8) | 0.1 s | 6.2 s | 2.7 s | 9.0 s |
+
+On `finance_en` the baseline takes 2.5 s and the final system 15.3 s (the agent
+12.1 s of it). The agent roughly triples the time to an answer.
 
 ## Held-out test
 
@@ -162,8 +194,6 @@ Side evaluations on the final system
   −0.048 (p = 0.004, 12 s per query on CPU).
 - **HyDE**: it improves the text route and BM25 individually (0.509 → 0.518 and
   0.507 → 0.529) but the fused result drops by 0.009 (p = 0.40).
-- **Prompt caching** for the contextual headers: the prompt is ordered so that the
-  shared pages come first, but the API reported no cached tokens for it.
 
 ## How to run
 
@@ -205,6 +235,12 @@ Tracing of agent runs (optional): `uv sync --group tracing`, start Phoenix
   starts from the visual route's results for the original question.
 - The judge has not yet been checked against human labels; review samples are
   exported with every judged run.
+- Prompt caching did not apply to the contextual-header calls, so they were paid
+  at the full input price ($0.58 for `hr`). The prompts are long enough (about
+  4,200 tokens, the shared pages first), but this endpoint only reports a cache
+  hit when a prompt begins with an entire earlier prompt, as each turn of the
+  agent's growing conversation does (17% of its input tokens were cached); header
+  prompts share only their leading pages and end in different chunks, and got none.
 - Two decisions are borderline by the p < 0.05 rule: the agent (p = 0.044) and the
   512-dimension text embeddings (p = 0.07 for a loss).
 - `DECISIONS.md` (in Chinese) records every implementation choice and its reason;

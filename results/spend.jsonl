@@ -12,3 +12,5 @@
 {"time": "2026-11-15T03:19:48", "run": "2026-11-15_hr_s8_agent", "what": "index + search", "usd": 0.25394}
 {"time": "2026-11-15T03:23:55", "run": "2026-11-15_hr_s8_agent", "what": "answers (318 queries)", "usd": 0.31695}
 {"time": "2026-11-15T03:26:32", "run": "2026-11-15_hr_trace_demo", "what": "index + search", "usd": 0.00196}
+{"time": "2026-11-15T03:29:36", "run": "2026-11-15_hr_robustness", "what": "abstention, injection, defended answers", "usd": 0.39823}
+{"time": "2026-11-15T03:42:29", "run": "2026-11-15_hr_robustness", "what": "abstention, injection, defended answers", "usd": 0.30874}

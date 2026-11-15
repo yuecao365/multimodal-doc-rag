@@ -1,0 +1,199 @@
+{
+  "abstention": {
+    "n_queries_without_relevant_pages": 100,
+    "refusal_rate_without_relevant_pages": 0.45,
+    "n_normal_queries_with_a_relevant_page": 267,
+    "false_refusal_rate_with_a_relevant_page": 0.08239700374531835,
+    "refusal_rate_all_normal_queries": 0.11320754716981132
+  },
+  "injection": {
+    "override": {
+      "undefended": {
+        "n_queries": 30,
+        "attack_success_rate": 0.0,
+        "by_form": {
+          "text": {
+            "n": 23,
+            "attack_success_rate": 0.0
+          },
+          "image": {
+            "n": 7,
+            "attack_success_rate": 0.0
+          }
+        }
+      },
+      "defended": {
+        "n_queries": 30,
+        "attack_success_rate": 0.0,
+        "by_form": {
+          "text": {
+            "n": 23,
+            "attack_success_rate": 0.0
+          },
+          "image": {
+            "n": 7,
+            "attack_success_rate": 0.0
+          }
+        }
+      }
+    },
+    "append": {
+      "undefended": {
+        "n_queries": 30,
+        "attack_success_rate": 0.3333333333333333,
+        "by_form": {
+          "text": {
+            "n": 23,
+            "attack_success_rate": 0.34782608695652173
+          },
+          "image": {
+            "n": 7,
+            "attack_success_rate": 0.2857142857142857
+          }
+        }
+      },
+      "defended": {
+        "n_queries": 30,
+        "attack_success_rate": 0.0,
+        "by_form": {
+          "text": {
+            "n": 23,
+            "attack_success_rate": 0.0
+          },
+          "image": {
+            "n": 7,
+            "attack_success_rate": 0.0
+          }
+        }
+      }
+    }
+  },
+  "defence_on_clean_queries": {
+    "answer_score_without_defence": 0.6698113207547169,
+    "answer_score_with_defence": 0.6823899371069182,
+    "difference": {
+      "n": 318,
+      "mean": 0.012578616352201259,
+      "ci95": [
+        -0.0110062893081761,
+        0.036163522012578615
+      ],
+      "p_value": 0.36176382361763826
+    },
+    "worse": false
+  },
+  "defended_answer_metrics": {
+    "n_queries": 318,
+    "answers_unparsed": 0,
+    "abstained": 0.11635220125786164,
+    "answer": {
+      "n_judged": 318,
+      "n_unparsed": 0,
+      "mean_score": 0.6823899371069182,
+      "accuracy_strict": 0.5125786163522013,
+      "n_correct": 163,
+      "n_partially_correct": 108,
+      "n_incorrect": 47
+    },
+    "answer_score_ci95": [
+      0.6415094339622641,
+      0.7216981132075472
+    ],
+    "answer_score_breakdown": {
+      "query_type": {
+        "boolean": {
+          "n": 41,
+          "mean": 0.7317
+        },
+        "compare-contrast": {
+          "n": 61,
+          "mean": 0.6475
+        },
+        "enumerative": {
+          "n": 61,
+          "mean": 0.6393
+        },
+        "extractive": {
+          "n": 87,
+          "mean": 0.7586
+        },
+        "multi-hop": {
+          "n": 30,
+          "mean": 0.7333
+        },
+        "numerical": {
+          "n": 84,
+          "mean": 0.7024
+        },
+        "open-ended": {
+          "n": 88,
+          "mean": 0.6193
+        }
+      },
+      "relevant_pages": {
+        "1": {
+          "n": 71,
+          "mean": 0.7113
+        },
+        "10+": {
+          "n": 52,
+          "mean": 0.5577
+        },
+        "2-4": {
+          "n": 123,
+          "mean": 0.7398
+        },
+        "5-9": {
+          "n": 72,
+          "mean": 0.6458
+        }
+      }
+    },
+    "citations": {
+      "n_answers": 318,
+      "n_citations": 759,
+      "answers_with_citations": 0.9874213836477987,
+      "answers_all_citations_ok": 0.9056603773584906,
+      "citation_verified_rate": 0.9644268774703557,
+      "citation_page_not_in_context_rate": 0.0,
+      "citation_quote_not_found_rate": 0.034255599472990776,
+      "citation_no_quote_rate": 0.0013175230566534915,
+      "citation_unverifiable_rate": 0.0
+    },
+    "provenance": {
+      "cited_pages": 1.6729559748427674,
+      "citation_precision": 0.6849056603773586,
+      "citation_recall": 0.3676248111795349,
+      "citation_f1": 0.4264066437957766,
+      "cites_a_relevant_page": 0.789308176100629
+    },
+    "pages_in_context": 2.30188679245283,
+    "context_has_relevant_page": 0.839622641509434,
+    "region": {
+      "n_scored": 0,
+      "mean_iou": null
+    }
+  },
+  "usage": {
+    "generator": {
+      "model": "gpt-6-luna",
+      "calls": 538,
+      "prompt_tokens": 1867681,
+      "cached_tokens": 1323621,
+      "completion_tokens": 93102,
+      "reasoning_tokens": 12453,
+      "truncated_replies": 0,
+      "cost_usd": 0.11419
+    },
+    "judge": {
+      "model": "gpt-6.1-terra",
+      "calls": 318,
+      "prompt_tokens": 92348,
+      "cached_tokens": 0,
+      "completion_tokens": 20441,
+      "reasoning_tokens": 6859,
+      "truncated_replies": 0,
+      "cost_usd": 0.19455
+    }
+  }
+}

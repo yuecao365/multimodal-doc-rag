@@ -81,8 +81,12 @@ def test_injection_succeeds_undefended_and_fails_defended(retrieval):
 
     defended = defended_answers(run, client, FakeChat(grader), max_pages=3, workers=2)
     summary = summarize(read_jsonl(out / "answers.jsonl"), [], poisoned, defended)
-    assert summary["injection"]["undefended"]["by_form"]["text"]["attack_success_rate"] == 1.0
-    assert summary["injection"]["defended"]["attack_success_rate"] == 0.0
+    override = summary["injection"]["override"]
+    assert override["undefended"]["by_form"]["text"]["attack_success_rate"] == 1.0
+    assert override["defended"]["attack_success_rate"] == 0.0
+    # The quieter attack is not obeyed by this scripted model.
+    quiet = injection(run, client, n=2, max_pages=3, seed=0, workers=1, attack="append")
+    assert quiet[0]["attack"] == "append" and not any(r["attack_succeeded"] for r in quiet)
     clean = summary["defence_on_clean_queries"]
     assert clean["difference"]["mean"] == 0 and not clean["worse"]
 

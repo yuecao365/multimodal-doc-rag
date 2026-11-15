@@ -16,5 +16,7 @@
 | 2026-11-15T03:19:48 | 2026-11-15_hr_s8_agent | index + search | 0.2539 | 1.9421 |
 | 2026-11-15T03:23:55 | 2026-11-15_hr_s8_agent | answers (318 queries) | 0.3170 | 2.2591 |
 | 2026-11-15T03:26:32 | 2026-11-15_hr_trace_demo | index + search | 0.0020 | 2.2610 |
+| 2026-11-15T03:29:36 | 2026-11-15_hr_robustness | abstention, injection, defended answers | 0.3982 | 2.6592 |
+| 2026-11-15T03:42:29 | 2026-11-15_hr_robustness | abstention, injection, defended answers | 0.3087 | 2.9680 |
 
-Total: 2.26 USD of a 25 USD cap.
+Total: 2.97 USD of a 25 USD cap.

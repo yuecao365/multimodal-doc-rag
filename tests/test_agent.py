@@ -122,6 +122,22 @@ def test_agent_reads_a_visual_page_as_an_image(run_agent):
     assert image_message["role"] == "user" and image_message["content"][1]["type"] == "image_url"
 
 
+def test_visual_search_is_offered_only_when_new_queries_can_be_encoded():
+    from mmrag.pipelines.agent import AgentSearch
+    from mmrag.visual.encoder import PrecomputedQueryEncoder
+
+    def tool_names(encoder):
+        visual = SimpleNamespace(encoder=encoder)
+        pipeline = SimpleNamespace(routes={"bm25": SimpleNamespace(), "visual": visual})
+        agent = AgentSearch(pipeline, client=None)
+        return [t["function"]["name"] for t in agent.tools()]
+
+    stored_only = PrecomputedQueryEncoder(store=None)
+    assert tool_names(stored_only) == ["keyword_search", "read_page", "finish"]
+    with_worker = PrecomputedQueryEncoder(store=None, fallback=object())
+    assert "visual_search" in tool_names(with_worker)
+
+
 def test_snippet_shows_the_part_of_the_page_with_the_query_words():
     text = "intro " * 80 + "the projector model TX-900 must be booked " + "outro " * 80
     assert "projector" in snippet(text, "who books the projector", width=80)

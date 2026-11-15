@@ -10,5 +10,11 @@
 | 2026-11-14T23:02:55 | 2026-11-14_hr_s4_rerank_llm | index + search | 0.2145 | 0.6175 |
 | 2026-11-14T23:42:10 | 2026-11-14_hr_x_ctx_no_rerank | index + search | 0.5968 | 1.2143 |
 | 2026-11-15T01:31:35 | 2026-11-15_hr_s7_hyde | index + search | 0.0430 | 1.2573 |
+| 2026-11-15T02:10:48 | 2026-11-15_hr_s6_compressed | answers (20 queries) | 0.0203 | 1.2776 |
+| 2026-11-15T02:38:48 | 2026-11-15_hr_s6_compressed | answers (318 queries) | 0.3954 | 1.6730 |
+| 2026-11-15T02:45:43 | 2026-11-15_hr_pilot_agent | index + search | 0.0151 | 1.6882 |
+| 2026-11-15T03:19:48 | 2026-11-15_hr_s8_agent | index + search | 0.2539 | 1.9421 |
+| 2026-11-15T03:23:55 | 2026-11-15_hr_s8_agent | answers (318 queries) | 0.3170 | 2.2591 |
+| 2026-11-15T03:26:32 | 2026-11-15_hr_trace_demo | index + search | 0.0020 | 2.2610 |
 
-Total: 1.26 USD of a 25 USD cap.
+Total: 2.26 USD of a 25 USD cap.

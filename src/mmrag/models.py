@@ -249,11 +249,14 @@ class ChatClient:
 
     def chat(self, messages: list[dict], **kwargs: Any) -> tuple[Any, int]:
         """One chat completion; returns (reply message, tokens this call used)."""
+        # The chat completions endpoint rejects function tools together with reasoning
+        # for these models, so tool-calling turns (the agent) run without reasoning.
+        effort = "none" if "tools" in kwargs else self.reasoning_effort
         resp = self._client.chat.completions.create(
             model=self.model,
             messages=messages,
             max_completion_tokens=self.max_tokens,
-            reasoning_effort=self.reasoning_effort,
+            reasoning_effort=effort,
             seed=0,  # the only handle on reproducibility these models offer
             **kwargs,
         )

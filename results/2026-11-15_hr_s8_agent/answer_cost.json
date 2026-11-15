@@ -1,0 +1,26 @@
+{
+  "generate_seconds_per_query": 2.651,
+  "generate_cost_usd_per_query": 0.000377,
+  "context_tokens_estimated_per_query": 2473,
+  "images_per_query": 0.610062893081761,
+  "generator": {
+    "model": "gpt-6-luna",
+    "calls": 318,
+    "prompt_tokens": 916830,
+    "cached_tokens": 9984,
+    "completion_tokens": 58254,
+    "reasoning_tokens": 10321,
+    "truncated_replies": 0,
+    "cost_usd": 0.11991
+  },
+  "judge": {
+    "model": "gpt-6.1-terra",
+    "calls": 318,
+    "prompt_tokens": 91606,
+    "cached_tokens": 0,
+    "completion_tokens": 21086,
+    "reasoning_tokens": 7545,
+    "truncated_replies": 0,
+    "cost_usd": 0.19704
+  }
+}

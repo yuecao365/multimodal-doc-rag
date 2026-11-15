@@ -176,6 +176,7 @@ def test_worker_that_dies_is_an_error():
     worker = WorkerQueryEncoder([sys.executable, "-c", "raise SystemExit(3)"])
     with pytest.raises(RuntimeError, match=r"exited \(code 3\)"):
         worker.encode_queries(["q"])
+    assert worker.restarts == 4  # it was started again before giving up
 
 
 def test_check_vectors_passes_for_the_same_model_and_fails_for_another(dataset_dir, tmp_path):

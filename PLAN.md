@@ -135,6 +135,11 @@ design changes, each measured, raises it to Y on held-out data.
     evidence is sufficient, searches again if not, then picks the pages to answer
     from (dynamic top-k instead of a fixed 5).
   - Hard limits: max tool calls (e.g. 8) and a token budget per question.
+  - `visual_search` needs the local query encoder (`--local-query-encoder`); without
+    it the tool is not offered. The hr run was made without it (the machine did not
+    have the memory), so the agent's effect with visual re-search is not measured.
+  - Tool-calling turns run with `reasoning_effort="none"`: the chat completions
+    endpoint does not accept function tools together with reasoning for this model.
   - Reuse the existing routes, fusion, context assembly, generation and citation
     check. The agent is a new search strategy, not a second pipeline.
 - Retrieval output for evaluation: the pages the agent selected, in its order,

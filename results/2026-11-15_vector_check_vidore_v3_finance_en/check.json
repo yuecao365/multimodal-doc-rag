@@ -1,0 +1,204 @@
+{
+  "dataset": "vidore/vidore_v3_finance_en",
+  "vectors": "data\\vectors\\vidore_v3_finance_en",
+  "stored": {
+    "model": "vidore/colqwen2.5-v0.2"
+  },
+  "local": {
+    "device": "cpu",
+    "dtype": "bfloat16"
+  },
+  "threshold": 0.99,
+  "worst_mean_cosine": {
+    "page": 0.97645,
+    "query": 0.99848
+  },
+  "agree": {
+    "page": false,
+    "query": true
+  },
+  "mean_query_top10_same": 0.9749999999999999,
+  "items": [
+    {
+      "kind": "page",
+      "id": "0",
+      "tokens": 755,
+      "mean_cosine": 0.97645,
+      "min_cosine": 0.07196
+    },
+    {
+      "kind": "page",
+      "id": "1470",
+      "tokens": 755,
+      "mean_cosine": 0.98173,
+      "min_cosine": 0.17379
+    },
+    {
+      "kind": "page",
+      "id": "2941",
+      "tokens": 755,
+      "mean_cosine": 0.98407,
+      "min_cosine": 0.04909
+    },
+    {
+      "kind": "query",
+      "id": "Did JPMorganChase execute more than half of its planned $30 billion stock repurchase program by year-end?",
+      "tokens": 35,
+      "mean_cosine": 0.99936,
+      "min_cosine": 0.99331,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "How do the dividend mechanisms and voting rights of Bank of America's Series B and Citigroup's Series O Preferred Stock differ?",
+      "tokens": 35,
+      "mean_cosine": 0.99912,
+      "min_cosine": 0.98923,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What is the relationship between Morgan Stanley's revenue growth and its expense efficiency ratio in 2024?",
+      "tokens": 32,
+      "mean_cosine": 0.99909,
+      "min_cosine": 0.98935,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "Morgan Stanley total Average Management VaR in 2024.",
+      "tokens": 25,
+      "mean_cosine": 0.99872,
+      "min_cosine": 0.97792,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What is the percentage increase in net loan charge-offs for Wells Fargo from 2023 to 2024?",
+      "tokens": 36,
+      "mean_cosine": 0.99975,
+      "min_cosine": 0.99798,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What amount of liabilities faced potential jurisdictional uncertainties in Citigroup\u2019s securities financing transactions?",
+      "tokens": 27,
+      "mean_cosine": 0.9995,
+      "min_cosine": 0.99802,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "Does Bank of America Corporation sponsor its Corporation Equity (the \"Stock\" plan)?",
+      "tokens": 26,
+      "mean_cosine": 0.99952,
+      "min_cosine": 0.99901,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "By how much were Citigroup's Other Real Estate Owner assets deducted from 2020 to 2024?",
+      "tokens": 36,
+      "mean_cosine": 0.99954,
+      "min_cosine": 0.99684,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Provide the included factors that impact the amount and timing of Wells Fargo's share repurchases.",
+      "tokens": 28,
+      "mean_cosine": 0.99975,
+      "min_cosine": 0.99908,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What percentage of Bank of America's total global property square footage is in the U.S. as of December 31, 2024?",
+      "tokens": 41,
+      "mean_cosine": 0.9997,
+      "min_cosine": 0.99798,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "What were Citigroup's transformation costs in 2024?",
+      "tokens": 24,
+      "mean_cosine": 0.99968,
+      "min_cosine": 0.99801,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "How are dividend payments on Trust XIII HITS dependent on Series F Preferred Stock, and what happens to HITS if Series F does not declare dividends?",
+      "tokens": 40,
+      "mean_cosine": 0.99965,
+      "min_cosine": 0.99855,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Enumerate the segments into which JPMorgan Chase's sales and trading revenue is segmented.",
+      "tokens": 28,
+      "mean_cosine": 0.99955,
+      "min_cosine": 0.99534,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "How did the total impact of valuation adjustments for credit risk and own credit risk affect the derivatives portfolio of Bank of America in 2024?",
+      "tokens": 40,
+      "mean_cosine": 0.99965,
+      "min_cosine": 0.99736,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Was Goldman Sachs affected by guidance from NYDFS regarding climate-related financial risk in 2023?",
+      "tokens": 31,
+      "mean_cosine": 0.99848,
+      "min_cosine": 0.98015,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "List all the subsidiaries registered in the Bahamas as per Exhibit 21.01 Citigroup\u2019s 2024 subsidiary list.",
+      "tokens": 38,
+      "mean_cosine": 0.99965,
+      "min_cosine": 0.9988,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Compare the number of subsidiaries registered in Mexico and Delaware as per Exhibit 21.01 Citigroup\u2019s 2024 subsidiary list.",
+      "tokens": 40,
+      "mean_cosine": 0.99924,
+      "min_cosine": 0.98154,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Has Bank of America in 2024 determined that the primary sources of liquidity risk are the deposit and repo markets?",
+      "tokens": 35,
+      "mean_cosine": 0.99967,
+      "min_cosine": 0.99896,
+      "top10_same": 1.0
+    },
+    {
+      "kind": "query",
+      "id": "Retrieve the value of Citigroup\u2019s Level 3 assets and liabilities at year-end 2024.",
+      "tokens": 32,
+      "mean_cosine": 0.9995,
+      "min_cosine": 0.99383,
+      "top10_same": 0.9
+    },
+    {
+      "kind": "query",
+      "id": "What types of exposure are included in Citigroup\u2019s funded VIE commitments?",
+      "tokens": 25,
+      "mean_cosine": 0.99968,
+      "min_cosine": 0.99811,
+      "top10_same": 0.9
+    }
+  ]
+}

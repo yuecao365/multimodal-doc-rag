@@ -23,12 +23,14 @@ routing and compression save at equal quality.
 index   page analyzer → text pages   → chunk + embed (LightRAG, naive mode, no KG)
                       → visual pages → multi-vectors (pooling / quantization)
         all pages     → BM25 inverted index
-query   three routes → RRF fusion → optional rerank → context assembly
+query   three routes → RRF fusion → optional rerank → optional agent (searches
+        again, picks the pages) → context assembly
         → VLM answer with citations → citation check
 ```
 
 - Entry points: `src/mmrag/pipelines/factory.py` (assembly), `pipelines/hybrid.py`
-  (routing, fusion, rerank), `experiments/run.py` (retrieval runs),
+  (routing, fusion, rerank), `pipelines/agent.py` (agentic search on top of the
+  hybrid pipeline), `experiments/run.py` (retrieval runs),
   `experiments/answer.py` (answer runs), `experiments/ladder.py` (the ladder table
   with its significance tests, from `results/ladder.json`).
 - ViDoRe ships parsed Markdown per page, so no PDF parser (Docling/MinerU) is wired

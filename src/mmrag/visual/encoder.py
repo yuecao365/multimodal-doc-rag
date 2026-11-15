@@ -123,6 +123,8 @@ class PrecomputedQueryEncoder:
     def __init__(self, store: MultiVectorStore, fallback: Any | None = None) -> None:
         self.store = store
         self.fallback = fallback
+        # Without a fallback only the stored queries can be searched, not new wording.
+        self.encodes_new_queries = fallback is not None
         self._new: dict[str, np.ndarray] = {}
 
     def encode_images(self, images: list[Any]) -> list[np.ndarray]:
@@ -149,6 +151,10 @@ class PrecomputedQueryEncoder:
         return [self.store.get(k) if k in self.store else self._new[k] for k in keys]
 
 
+class WorkerExited(RuntimeError):
+    """The query worker process ended before it replied."""
+
+
 class WorkerQueryEncoder:
     """Query encoder backed by a ``mmrag.visual.query_worker`` child process.
 
@@ -156,9 +162,13 @@ class WorkerQueryEncoder:
     holds the latency of every call, model loading excluded.
     """
 
-    def __init__(self, command: list[str], env: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, command: list[str], env: dict[str, str] | None = None, attempts: int = 4
+    ) -> None:
         self.command = command
         self.env = env
+        self.attempts = attempts
+        self.restarts = 0
         self.seconds: list[float] = []
         self.load_seconds = 0.0
         self._process: subprocess.Popen | None = None
@@ -170,7 +180,7 @@ class WorkerQueryEncoder:
         for line in self._process.stdout:
             if line.startswith('{"mmrag"'):
                 return json.loads(line)
-        raise RuntimeError(
+        raise WorkerExited(
             f"Query worker exited (code {self._process.wait()}), see its output above; "
             f"command: {self.command}"
         )
@@ -188,14 +198,26 @@ class WorkerQueryEncoder:
         raise RuntimeError("The query worker encodes queries only")
 
     def encode_queries(self, texts: list[str]) -> list[np.ndarray]:
-        if self._process is None:
-            self._start()
-        assert self._process is not None and self._process.stdin is not None
         out = Path(self._tmp.name) / f"{len(self.seconds)}.npz"
         started = time.perf_counter()
-        self._process.stdin.write(json.dumps({"queries": texts, "out": str(out)}) + "\n")
-        self._process.stdin.flush()
-        self._reply()
+        # The model barely fits in memory on a small machine and the process can be
+        # killed while loading or encoding; a fresh process usually succeeds.
+        for attempt in range(self.attempts):
+            try:
+                if self._process is None:
+                    self._start()
+                    started = time.perf_counter()
+                assert self._process is not None and self._process.stdin is not None
+                request = json.dumps({"queries": texts, "out": str(out)})
+                self._process.stdin.write(request + "\n")
+                self._process.stdin.flush()
+                self._reply()
+                break
+            except (WorkerExited, OSError):
+                self._process = None
+                self.restarts += 1
+                if attempt == self.attempts - 1:
+                    raise
         self.seconds.append(time.perf_counter() - started)
         store = MultiVectorStore.load(out)
         out.unlink()

@@ -2,7 +2,8 @@
 
 The agent is a search strategy on top of the hybrid pipeline, not a second
 pipeline. It starts from the one-shot fused results, may search each route again
-with its own wording (``text_search``, ``keyword_search``, ``visual_search``),
+with its own wording (``text_search``, ``keyword_search``, and ``visual_search``
+when the visual route can encode new queries: ``--local-query-encoder``),
 may open a page (``read_page``), and ends by naming the pages to answer from
 (``finish``). Those pages head the ranking, followed by the one-shot candidates;
 answer generation then reads only the selected pages (at most ``max_pages``).
@@ -108,7 +109,7 @@ class AgentSearch:
         tools = [
             function_tool(name, description, query, ["query"])
             for route, (name, description) in SEARCH_TOOLS.items()
-            if route in self.pipeline.routes
+            if route in self.pipeline.routes and self._searchable(route)
         ]
         page = {"page_id": {"type": "string"}}
         tools.append(
@@ -121,6 +122,12 @@ class AgentSearch:
             )
         )
         return tools
+
+    def _searchable(self, route: str) -> bool:
+        """Whether the route can search for wording the agent makes up. The visual route
+        cannot when it only has the dataset's precomputed query vectors."""
+        encoder = getattr(self.pipeline.routes[route], "encoder", None)
+        return getattr(encoder, "encodes_new_queries", True)
 
     def _listing(self, scores: dict[str, float], query: str) -> str:
         rows = [

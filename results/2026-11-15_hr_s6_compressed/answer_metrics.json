@@ -1,0 +1,98 @@
+{
+  "settings": {
+    "max_pages": 5,
+    "token_budget": 12000,
+    "form": "auto",
+    "with_regions": false
+  },
+  "n_queries": 318,
+  "answers_unparsed": 0,
+  "abstained": 0.1761006289308176,
+  "answer": {
+    "n_judged": 318,
+    "n_unparsed": 0,
+    "mean_score": 0.6320754716981132,
+    "accuracy_strict": 0.46226415094339623,
+    "n_correct": 147,
+    "n_partially_correct": 108,
+    "n_incorrect": 63
+  },
+  "answer_score_ci95": [
+    0.589622641509434,
+    0.6745283018867925
+  ],
+  "answer_score_breakdown": {
+    "query_type": {
+      "boolean": {
+        "n": 41,
+        "mean": 0.6829
+      },
+      "compare-contrast": {
+        "n": 61,
+        "mean": 0.582
+      },
+      "enumerative": {
+        "n": 61,
+        "mean": 0.5656
+      },
+      "extractive": {
+        "n": 87,
+        "mean": 0.6552
+      },
+      "multi-hop": {
+        "n": 30,
+        "mean": 0.7167
+      },
+      "numerical": {
+        "n": 84,
+        "mean": 0.619
+      },
+      "open-ended": {
+        "n": 88,
+        "mean": 0.608
+      }
+    },
+    "relevant_pages": {
+      "1": {
+        "n": 71,
+        "mean": 0.669
+      },
+      "10+": {
+        "n": 52,
+        "mean": 0.5
+      },
+      "2-4": {
+        "n": 123,
+        "mean": 0.6667
+      },
+      "5-9": {
+        "n": 72,
+        "mean": 0.6319
+      }
+    }
+  },
+  "citations": {
+    "n_answers": 318,
+    "n_citations": 715,
+    "answers_with_citations": 0.9371069182389937,
+    "answers_all_citations_ok": 0.8333333333333334,
+    "citation_verified_rate": 0.9454545454545454,
+    "citation_page_not_in_context_rate": 0.002797202797202797,
+    "citation_quote_not_found_rate": 0.05034965034965035,
+    "citation_no_quote_rate": 0.0013986013986013986,
+    "citation_unverifiable_rate": 0.0
+  },
+  "provenance": {
+    "cited_pages": 1.5408805031446542,
+    "citation_precision": 0.6422955974842768,
+    "citation_recall": 0.3440413324245362,
+    "citation_f1": 0.398121779622069,
+    "cites_a_relevant_page": 0.7452830188679245
+  },
+  "pages_in_context": 5.0,
+  "context_has_relevant_page": 0.8679245283018868,
+  "region": {
+    "n_scored": 0,
+    "mean_iou": null
+  }
+}

@@ -12,6 +12,7 @@ from `heldout.json`.
 | final | Final system: text + BM25 + visual, contextual headers, compressed index, agent | 0.695 | 0.721 | 0.680 | 52.7 | 0.00073 | +0.094 [+0.052, +0.136] answer | 0.0001 | - | [2026-11-15_fin_final_agent](2026-11-15_fin_final_agent/) |
 | final | Final system against the baseline, retrieval | 0.695 | 0.721 | 0.680 | 52.7 | 0.00073 | +0.171 [+0.140, +0.203] ndcg | 0.0001 | - | [2026-11-15_fin_final_agent](2026-11-15_fin_final_agent/) |
 | without agent | One-shot retrieval, top of the fused ranking | 0.645 | 0.701 | - | 52.6 | 0.00000 | -0.050 [-0.070, -0.031] ndcg | 0.0001 | - | [2026-11-15_fin_final](2026-11-15_fin_final/) |
+| without text route | Routes: BM25, visual (no dense text index) | 0.674 | 0.690 | - | 33.5 | 0.00082 | -0.021 [-0.040, -0.003] ndcg | 0.0244 | - | [2026-11-15_fin_loo_no_text](2026-11-15_fin_loo_no_text/) |
 | without BM25 | Routes: text, visual | 0.673 | 0.694 | - | 50.5 | 0.00073 | -0.022 [-0.041, -0.004] ndcg | 0.0220 | - | [2026-11-15_fin_loo_no_bm25](2026-11-15_fin_loo_no_bm25/) |
 | without visual | Routes: text, BM25 | 0.667 | 0.676 | - | 21.3 | 0.00075 | -0.028 [-0.045, -0.012] ndcg | 0.0005 | - | [2026-11-15_fin_loo_no_visual](2026-11-15_fin_loo_no_visual/) |
 | without headers | No contextual chunk headers | 0.677 | 0.687 | - | 51.5 | 0.00066 | -0.018 [-0.033, -0.004] ndcg | 0.0115 | - | [2026-11-15_fin_loo_no_headers](2026-11-15_fin_loo_no_headers/) |

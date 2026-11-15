@@ -133,12 +133,15 @@ compares retrieval with the final system (NDCG@10 0.695).
 |---|---|---|---|---|
 | [agent](results/2026-11-15_fin_final/) | 0.645 | −0.050 [−0.070, −0.031] | 0.0001 | 52.6 |
 | [visual route](results/2026-11-15_fin_loo_no_visual/) | 0.667 | −0.028 [−0.045, −0.012] | 0.0005 | 21.3 |
+| [dense text route](results/2026-11-15_fin_loo_no_text/) | 0.674 | −0.021 [−0.040, −0.003] | 0.024 | 33.5 |
 | [BM25](results/2026-11-15_fin_loo_no_bm25/) | 0.673 | −0.022 [−0.041, −0.004] | 0.022 | 50.5 |
 | [contextual headers](results/2026-11-15_fin_loo_no_headers/) | 0.677 | −0.018 [−0.033, −0.004] | 0.012 | 51.5 |
 | [compression](results/2026-11-15_fin_loo_no_compression/) | 0.695 | −0.000 [−0.014, +0.014] | 0.99 | 220.1 |
 
-Every kept quality change also matters on the held-out set, and compression again
-costs nothing: 220 → 53 KB per page (−76%).
+Every kept quality change also matters on the held-out set, and so does each of
+the three routes: removing any one of them costs 0.02 to 0.03 NDCG@10. Compression
+again costs nothing: 220 → 53 KB per page (−76%). (The row without the dense text
+route was run after the others, on 2026-11-15, with the same frozen settings.)
 
 **Per-page routing** was not kept on `hr`, and the held-out set agrees.
 [Routed](results/2026-11-15_fin_routed/) against the same system without routing

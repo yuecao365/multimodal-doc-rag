@@ -31,5 +31,6 @@
 | 2026-11-15T10:49:25 | cache_check | prompt-cache check for contextual headers (2) | 0.0032 | 6.2523 |
 | 2026-11-15T10:56:11 | 2026-11-15_hr_s9_agent_visual | index + search | 0.2410 | 6.4933 |
 | 2026-11-15T11:00:27 | 2026-11-15_hr_s9_agent_visual | answers (318 queries) | 0.3124 | 6.8056 |
+| 2026-11-15T11:15:46 | 2026-11-15_fin_loo_no_text | index + search | 0.2547 | 7.0604 |
 
-Total: 6.81 USD of a 25 USD cap.
+Total: 7.06 USD of a 25 USD cap.

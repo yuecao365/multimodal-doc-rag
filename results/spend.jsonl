@@ -27,3 +27,4 @@
 {"time": "2026-11-15T10:49:25", "run": "cache_check", "what": "prompt-cache check for contextual headers (2)", "usd": 0.00318}
 {"time": "2026-11-15T10:56:11", "run": "2026-11-15_hr_s9_agent_visual", "what": "index + search", "usd": 0.24099}
 {"time": "2026-11-15T11:00:27", "run": "2026-11-15_hr_s9_agent_visual", "what": "answers (318 queries)", "usd": 0.31236}
+{"time": "2026-11-15T11:15:46", "run": "2026-11-15_fin_loo_no_text", "what": "index + search", "usd": 0.25475}

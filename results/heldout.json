@@ -3,6 +3,7 @@
   {"step": "final", "change": "Final system: text + BM25 + visual, contextual headers, compressed index, agent", "run": "2026-11-15_fin_final_agent", "against": "2026-11-15_fin_baseline", "kind": "ablation", "metric": "answer"},
   {"step": "final", "change": "Final system against the baseline, retrieval", "run": "2026-11-15_fin_final_agent", "against": "2026-11-15_fin_baseline", "kind": "ablation", "metric": "ndcg"},
   {"step": "without agent", "change": "One-shot retrieval, top of the fused ranking", "run": "2026-11-15_fin_final", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without text route", "change": "Routes: BM25, visual (no dense text index)", "run": "2026-11-15_fin_loo_no_text", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
   {"step": "without BM25", "change": "Routes: text, visual", "run": "2026-11-15_fin_loo_no_bm25", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
   {"step": "without visual", "change": "Routes: text, BM25", "run": "2026-11-15_fin_loo_no_visual", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
   {"step": "without headers", "change": "No contextual chunk headers", "run": "2026-11-15_fin_loo_no_headers", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},

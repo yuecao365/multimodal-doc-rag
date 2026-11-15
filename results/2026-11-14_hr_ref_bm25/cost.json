@@ -1,0 +1,23 @@
+{
+  "note": "Indexing figures cover only work done in this invocation; a rerun over an existing work_dir reuses what is already indexed.",
+  "index_seconds": 1.06,
+  "index_storage_bytes": 2743873,
+  "index_storage_bytes_per_page": 2472,
+  "search_seconds": 0.09,
+  "search_seconds_per_query": 0.0003,
+  "search_cost_usd_per_query": 0.0,
+  "after_index": {
+    "bm25": {
+      "n_pages": 1110,
+      "n_terms": 22342,
+      "language": "english"
+    }
+  },
+  "after_search": {
+    "bm25": {
+      "n_pages": 1110,
+      "n_terms": 22342,
+      "language": "english"
+    }
+  }
+}

@@ -68,6 +68,72 @@ class MaxSimReranker:
         }
 
 
+def bge_scorer(model_name: str, max_length: int = 512, batch_size: int = 8) -> Callable:
+    """Relevance scores from a cross-encoder on CPU: scorer(query, texts) -> list[float]."""
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name).eval()
+
+    def score(query: str, texts: list[str]) -> list[float]:
+        out: list[float] = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            inputs = tokenizer(
+                [query] * len(batch), batch, padding=True, truncation="only_second",
+                max_length=max_length, return_tensors="pt",
+            )  # fmt: skip
+            with torch.inference_mode():
+                out.extend(model(**inputs).logits.view(-1).tolist())
+        return out
+
+    return score
+
+
+class CrossEncoderReranker:
+    """Rescore candidates with a text cross-encoder that reads query and page together.
+
+    Only pages with parsed text can be judged; a page without text keeps the
+    position the first stage gave it. A page longer than the model's input (512
+    tokens for bge-reranker-base) is judged on its beginning.
+    """
+
+    name = "cross-encoder"
+
+    def __init__(self, model_name: str = "BAAI/bge-reranker-base", scorer: Callable | None = None):
+        self.model_name = model_name
+        self.scorer = scorer or bge_scorer(model_name)
+        self.texts: dict[str, str] = {}
+        self.queries = 0
+        self.pages_scored = 0
+
+    def prepare(self, corpus_ids, corpus_texts, image_provider=None) -> None:
+        self.texts = dict(zip(map(str, corpus_ids), corpus_texts))
+
+    def rerank(self, query: str, candidates: dict[str, float], top_n: int = 20) -> dict[str, float]:
+        head = ranked_ids(candidates)[:top_n]
+        judged = [p for p in head if (self.texts.get(p) or "").strip()]
+        scores = dict(zip(judged, self.scorer(query, [self.texts[p] for p in judged])))
+        self.queries += 1
+        self.pages_scored += len(judged)
+        best_first = iter(sorted(judged, key=lambda p: (-scores[p], p)))
+        # Judged pages take the slots of judged pages; the others stay where they were.
+        order = [next(best_first) if p in scores else p for p in head]
+        return merge_order(order, candidates)
+
+    def storage_bytes(self) -> int:
+        return 0
+
+    def info(self) -> dict:
+        return {
+            "reranker": self.name,
+            "model": self.model_name,
+            "queries": self.queries,
+            "pages_scored": self.pages_scored,
+        }
+
+
 LLM_RERANK_SYSTEM = """You rank document pages by how useful they are for answering a question.
 
 Each page is introduced by a line "[PAGE <id>]" followed by an excerpt of its text or its image.

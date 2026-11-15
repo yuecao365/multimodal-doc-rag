@@ -181,13 +181,14 @@ def test_worker_that_dies_is_an_error():
 def test_check_vectors_passes_for_the_same_model_and_fails_for_another(dataset_dir, tmp_path):
     encode_dataset(FakeLateEncoder(), str(dataset_dir), tmp_path, model="fake")
     report = check_vectors(FakeLateEncoder(), str(dataset_dir), tmp_path, n_pages=3, n_queries=2)
-    assert report["agree"] and report["worst_mean_cosine"] > 0.999
+    assert report["agree"] == {"page": True, "query": True}
+    assert report["worst_mean_cosine"]["page"] > 0.999 and report["mean_query_top10_same"] == 1
     assert [i["kind"] for i in report["items"]] == ["page"] * 3 + ["query"] * 2
 
     class Other(FakeLateEncoder):
         def _vectors(self, text):
             return super()._vectors(text)[:, ::-1].copy()
 
-    assert not check_vectors(Other(), str(dataset_dir), tmp_path)["agree"]
+    assert check_vectors(Other(), str(dataset_dir), tmp_path)["agree"]["query"] is False
     with pytest.raises(ValueError, match="differ in shape"):
         token_cosines(np.ones((2, 4)), np.ones((3, 4)))

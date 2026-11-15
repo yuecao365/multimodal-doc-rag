@@ -146,18 +146,19 @@ def verify_citations(
     return report
 
 
-def summarize_reports(reports: list[CitationReport]) -> dict:
-    total = sum(r.n for r in reports)
+def summarize_reports(reports: list[dict]) -> dict:
+    """Citation statistics over answers; ``reports`` are ``CitationReport.to_dict()`` outputs."""
+    total = sum(r["n_citations"] for r in reports)
 
     def rate(status: str) -> float | None:
-        return sum(r.count(status) for r in reports) / total if total else None
+        return sum(r[status] for r in reports) / total if total else None
 
     n = len(reports)
     return {
         "n_answers": n,
         "n_citations": total,
-        "answers_with_citations": sum(1 for r in reports if r.n > 0) / n if n else None,
-        "answers_all_citations_ok": sum(1 for r in reports if r.all_ok) / n if n else None,
+        "answers_with_citations": sum(1 for r in reports if r["n_citations"]) / n if n else None,
+        "answers_all_citations_ok": sum(1 for r in reports if r["all_ok"]) / n if n else None,
         "citation_verified_rate": rate(VERIFIED),
         "citation_page_not_in_context_rate": rate(PAGE_NOT_IN_CONTEXT),
         "citation_quote_not_found_rate": rate(QUOTE_NOT_FOUND),

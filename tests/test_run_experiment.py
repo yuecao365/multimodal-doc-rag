@@ -7,6 +7,7 @@ import pytest
 from helpers import FakeLateEncoder, HashingEmbedder
 from mmrag.adapters.vidore_pipeline import MMRAGPipeline
 from mmrag.data.vidore import load_vidore_subset
+from mmrag.experiments.common import read_json
 from mmrag.experiments.run import build_parser, run_experiment
 
 
@@ -43,7 +44,7 @@ def test_text_pipeline_writes_reproducible_results(run_args, tmp_path):
     config = read(out / "config.json")
     assert config["pipeline"]["pipeline"] == "text" and config["seed"] == 0
     assert read(out / "cost.json")["index_storage_bytes"] > 0
-    for name in ("environment.json", "queries.json", "run.json", "per_query.jsonl"):
+    for name in ("environment.json", "run.json", "per_query.jsonl"):
         assert (out / name).exists()
 
 
@@ -102,8 +103,7 @@ def test_hybrid_pipeline_routes_pages_and_records_every_route(run_args):
     assert read(out / "metrics.json")["recall_10"] == 1.0
     routes = read(out / "page_routes.json")
     assert routes["3"] == "visual" and routes["0"] == "text"
-    for name in ("text", "bm25", "visual", "fused"):
-        assert (out / f"run_{name}.json").exists()
+    assert set(read_json(out / "route_runs.json.gz")) == {"text", "bm25", "visual", "fused"}
     cost = read(out / "cost.json")
     summary = cost["after_index"]["routing_summary"]
     assert summary["n_text"] + summary["n_visual"] == 6

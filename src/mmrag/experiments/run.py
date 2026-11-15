@@ -2,8 +2,9 @@
 
     uv run python -m mmrag.experiments.run --pipeline text
 
-Indexes the subset, retrieves for a seeded sample of queries, and writes the
-configuration, rankings, metrics and cost to results/<date>_<name>/.
+Indexes the subset, retrieves for every query (or a seeded sample), and writes the
+configuration, rankings, metrics and cost to results/<date>_<name>/. Runs that
+share ``--work-dir`` share their indexes.
 See ``--help`` for the pipeline choices and ablation switches.
 """
 
@@ -18,8 +19,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from mmrag.data.vidore import load_vidore_subset
-from mmrag.eval.retrieval import evaluate_run
-from mmrag.experiments.common import ROOT, environment, results_dir, write_json, write_jsonl
+from mmrag.eval.breakdown import breakdown, n_relevant
+from mmrag.eval.retrieval import MEASURES, evaluate_run
+from mmrag.experiments import spend
+from mmrag.experiments.common import (
+    ROOT,
+    environment,
+    results_dir,
+    work_root,
+    write_json,
+    write_jsonl,
+)
 from mmrag.pipelines.factory import PIPELINES, PipelineSpec, build_pipeline
 
 logger = logging.getLogger("mmrag.run")
@@ -53,7 +63,13 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
     name = args.name or spec.pipeline
     out_dir = results_dir(name, args.date)
     slug = args.dataset.replace("\\", "/").rstrip("/").split("/")[-1]
-    work_dir = Path(args.work_dir) if args.work_dir else ROOT / "rag_storage" / f"{name}_{slug}"
+    work_name = args.work_dir or f"{name}_{slug}"
+    work_dir = work_root() / work_name  # an absolute --work-dir is used as it is
+    spend.check_budget()
+    if args.trace:
+        from mmrag import tracing
+
+        tracing.enable()
 
     data = load_vidore_subset(args.dataset, n_queries, args.language, args.seed)
     config = {
@@ -63,15 +79,11 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
         "n_queries": n_queries,
         "seed": args.seed,
         "corpus": "full subset",
-        "work_dir": str(work_dir),
+        "work_dir": work_name,
         "pipeline": spec.to_dict(),
     }
     write_json(out_dir / "config.json", config)
     write_json(out_dir / "environment.json", environment())
-    write_json(
-        out_dir / "queries.json",
-        [{"query_id": q, "query": t} for q, t in zip(data.query_ids, data.queries)],
-    )
 
     pipeline = build_pipeline(spec, work_dir, data=data, **overrides)
 
@@ -90,11 +102,14 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
 
     metrics, per_query = evaluate_run(data.qrels, run)
     non_empty = [t for t in data.corpus_texts if t.strip()]
-    write_json(out_dir / "run.json", run)
-    for route, route_run in (info.pop("route_runs", None) or {}).items():
-        write_json(out_dir / f"run_{route}.json", route_run)
-    if "page_routes" in info:
-        write_json(out_dir / "page_routes.json", info.pop("page_routes"))
+    write_json(out_dir / "run.json", _rounded(run), indent=None)
+    if "route_runs" in info:  # every route's candidates and the fused list, before reranking
+        route_runs = {name: _rounded(r) for name, r in info.pop("route_runs").items()}
+        write_json(out_dir / "route_runs.json.gz", route_runs, indent=None)
+    # Per-page or per-query detail a pipeline reports goes to its own file.
+    for key in ("page_routes", "selected_pages", "search_texts", "agent_steps"):
+        if key in info:
+            write_json(out_dir / f"{key}.json", info.pop(key), indent=None)
     write_jsonl(
         out_dir / "per_query.jsonl",
         [
@@ -102,7 +117,8 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
                 "query_id": qid,
                 "query": text,
                 **per_query[qid],
-                "n_relevant": sum(1 for s in data.qrels[qid].values() if s > 0),
+                "n_relevant": n_relevant(data, qid),
+                "query_types": data.query_types.get(qid, []),
                 "retrieved": list(run.get(qid, {})),
             }
             for qid, text in zip(data.query_ids, data.queries)
@@ -121,6 +137,10 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
                 1 for q in data.query_ids if len(run.get(q, {})) < spec.top_k
             ),
             **metrics,
+            "breakdown": {
+                key: breakdown({q: per_query[q][key] for q in data.query_ids}, data)
+                for key in MEASURES.values()
+            },
         },
     )
     n_pages, n_queries = max(1, len(data.corpus_ids)), max(1, len(data.query_ids))
@@ -134,13 +154,22 @@ def run_experiment(args: argparse.Namespace, **overrides) -> Path:
             "index_storage_bytes_per_page": round(storage / n_pages),
             "search_seconds": round(search_seconds, 2),
             "search_seconds_per_query": round(search_seconds / n_queries, 4),
+            # Model calls made while searching (query embeddings, rewrites, reranking, agent).
+            "search_cost_usd_per_query": round(
+                (spend.total_cost(info) - spend.total_cost(index_info)) / n_queries, 6
+            ),
             "after_index": index_info,
             "after_search": info,
         },
     )
+    spend.record(out_dir.name, "index + search", info)
     logger.info("metrics: %s", metrics)
     print(f"{name}: {metrics}\nresults written to {out_dir}")
     return out_dir
+
+
+def _rounded(run: dict) -> dict:
+    return {q: {p: round(s, 6) for p, s in scores.items()} for q, scores in run.items()}
 
 
 def _info(pipeline) -> dict:
@@ -161,11 +190,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--dataset", default="vidore/vidore_v3_hr", help="Hub id or local directory")
     p.add_argument("--language", default="english")
-    p.add_argument("--n-queries", type=int, default=50, help="0 = all queries")
+    p.add_argument("--n-queries", type=int, default=0, help="0 = all queries")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--name", default=None, help="results/<date>_<name>; default: pipeline name")
     p.add_argument("--date", default=None, help="YYYY-MM-DD for the results dir (default: today)")
-    p.add_argument("--work-dir", default=None, help="where indexes are stored")
+    p.add_argument("--work-dir", default=None, help="index directory under the work root")
+    p.add_argument("--trace", action="store_true", help="send model calls to Phoenix")
     add_spec_arguments(p)
     return p
 

@@ -46,7 +46,8 @@ class MMRAGPipeline(BasePipeline):
         work_dir = self.work_dir
         if dataset_name:
             work_dir = work_dir / dataset_name.replace("/", "_")
-        self._pipeline = build_pipeline(self.spec, work_dir, embedder=self._embedder)
+        models = {"embedder": self._embedder} if self._embedder is not None else {}
+        self._pipeline = build_pipeline(self.spec, work_dir, **models)
         t0 = time.perf_counter()
         self._pipeline.index(
             [str(c) for c in corpus_ids], corpus_images, list(corpus_texts), dataset_name

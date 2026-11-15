@@ -6,9 +6,9 @@ import pytest
 
 from helpers import FakeChat, FakeLateEncoder, HashingEmbedder, answer_json
 from mmrag.experiments.answer import answer_run, page_forms
-from mmrag.experiments.common import read_json, read_jsonl
-from mmrag.experiments.compare import comparison_table, summarize
+from mmrag.experiments.common import read_json, read_jsonl, write_json
 from mmrag.experiments.failure_analysis import analyze_failures, to_markdown
+from mmrag.experiments.ladder import ladder_table
 from mmrag.experiments.run import build_parser, run_experiment
 
 HYBRID = ["--pipeline", "hybrid", "--min-text-chars", "20", "--no-analyzer-images"]
@@ -82,7 +82,7 @@ def test_rerank_run_records_reranker_use(run_dir, tmp_path):
 
 def test_llm_rerank_uses_the_injected_client(run_dir):
     client = FakeChat(lambda system, parts: json.dumps({"ranking": []}))
-    out = run_dir("llm", *HYBRID, "--rerank", "llm", rerank_client=client)
+    out = run_dir("llm", *HYBRID, "--rerank", "llm", chat_client=client)
     assert client.calls == 4  # one listwise call per query
     assert read_json(out / "cost.json")["after_search"]["rerank"]["unparsed_replies"] == 4
 
@@ -177,15 +177,23 @@ def test_failure_analysis_splits_wrong_answers_by_cause(run_dir):
     assert answers["answers_with_failed_citation_checks"] == 2
 
 
-def test_compare_builds_a_table_from_stored_numbers(run_dir):
-    text = run_dir("text_only", "--pipeline", "text")
-    hybrid = run_dir("hybrid", *HYBRID, "--quantization", "int8", "--pool-factor", "2")
+def test_ladder_table_decides_from_stored_numbers(run_dir, tmp_path):
+    run_dir("text_only", "--pipeline", "text")
+    hybrid = run_dir("hybrid", *HYBRID)
     answer_run(hybrid, generator(), judge())
+    steps = [
+        {"step": "0", "change": "baseline", "run": "2000-01-01_text_only", "kind": "baseline"},
+        {"step": "1", "change": "+ routes", "run": "2000-01-01_hybrid",
+         "against": "2000-01-01_text_only", "kind": "quality", "metric": "ndcg"},
+        {"step": "2", "change": "same again", "run": "2000-01-01_hybrid",
+         "against": "2000-01-01_hybrid", "kind": "efficiency", "metric": "ndcg"},
+    ]  # fmt: skip
+    write_json(tmp_path / "results" / "ladder.json", steps)
 
-    row = summarize(hybrid)
-    assert row["Recall@10"] == "1.000" and row["visual index"] == "int8, pool 2"
-    assert row["answer score"] == "0.750" and row["routes"] == "text,bm25,visual"
-    assert summarize(text)["answer score"] == "-"  # no answers generated for that run
-
-    table = comparison_table([text, hybrid])
-    assert table.count("\n") == 4 and "| text_only | text |" in table
+    lines = ladder_table(tmp_path / "results").splitlines()
+    baseline, quality, efficiency = (line.split(" | ") for line in lines[2:])
+    assert baseline[4] == "-" and quality[4] == "0.750"  # answer score only where it was run
+    # Four queries cannot show a significant gain, so the quality step is not kept;
+    # an efficiency step with no loss is.
+    assert quality[-2] == "no" and efficiency[-2] == "yes"
+    assert "+0.000 [+0.000, +0.000] ndcg" in efficiency[7]

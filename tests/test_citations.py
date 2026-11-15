@@ -82,7 +82,7 @@ def test_summary_over_answers():
         verify_citations(Answer("y", [Citation("42", "q"), Citation("8", "")]), ["8"], TEXTS),
         verify_citations(Answer("z"), ["7"], TEXTS),
     ]
-    s = summarize_reports(reports)
+    s = summarize_reports([r.to_dict() for r in reports])
     assert s["n_answers"] == 3 and s["n_citations"] == 3
     assert s["answers_with_citations"] == pytest.approx(2 / 3)
     assert s["answers_all_citations_ok"] == pytest.approx(1 / 3)

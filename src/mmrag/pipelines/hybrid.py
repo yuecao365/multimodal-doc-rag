@@ -9,9 +9,10 @@ Indexing
 Search
   each route returns its candidates -> RRF over page ids -> optional rerank
 
-Any route can be left out (ablation). With ``routing="all"`` the analyzer is
-skipped and the text and visual routes both index every page, which is the
-no-savings upper bound the routed variant is compared against.
+Any route can be left out (ablation). With ``routing="all"`` the text and visual
+routes both index every page, which is the no-savings upper bound the routed
+variant is compared against. The analyzer still runs: its verdict also decides
+whether a page is shown to the answering model as text or as an image.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import json
 import logging
 import time
 from collections.abc import Callable, Iterable
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +50,8 @@ class HybridPipeline:
         weights: dict[str, float] | None = None,
         reranker: Any | None = None,
         rerank_top_n: int = 20,
+        text_transform: Callable[[list[str], list[str]], list[str]] | None = None,
+        rewriter: Callable[[list[str]], list[str]] | None = None,
         image_provider: ImageProvider | None = None,
         analyzer_uses_images: bool = True,
         work_dir: str | Path | None = None,
@@ -65,6 +69,11 @@ class HybridPipeline:
         self.weights = weights
         self.reranker = reranker
         self.rerank_top_n = rerank_top_n
+        # Applied to the page texts the text and keyword routes index (chunk headers).
+        self.text_transform = text_transform
+        # Turns each question into the text the routes search with (HyDE).
+        self.rewriter = rewriter
+        self.search_texts: dict[str, str] = {}
         self.image_provider = image_provider
         # The visual route reads the images of its own pages through the same provider.
         if visual is not None and getattr(visual, "image_provider", None) is None:
@@ -91,25 +100,31 @@ class HybridPipeline:
         return None
 
     def _route_pages(self, corpus_ids, corpus_images, corpus_texts) -> None:
-        if self.routing == "all":
-            self.page_routes = dict.fromkeys(corpus_ids, "both")
-            return
-        images = None
-        if self.analyzer_uses_images:
-            images = self._images(corpus_ids, corpus_ids, corpus_images)
-        t0 = time.perf_counter()
-        self.analyses = self.analyzer.analyze(corpus_ids, corpus_texts, images)
-        self.timings["analyze_seconds"] = round(time.perf_counter() - t0, 2)
-        self.page_routes = {pid: a.route for pid, a in self.analyses.items()}
+        """Analyze every page (text page or visual page); the result is kept in work_dir."""
+        cache = self.work_dir / "page_analysis.json" if self.work_dir is not None else None
+        config = {**asdict(self.analyzer.config), "uses_images": self.analyzer_uses_images}
+        if cache is not None and cache.exists():
+            saved = json.loads(cache.read_text(encoding="utf-8"))
+            if saved["config"] == config and list(saved["pages"]) == corpus_ids:
+                self.analyses = {p: PageAnalysis(**a) for p, a in saved["pages"].items()}
+        if not self.analyses:
+            images = None
+            if self.analyzer_uses_images:
+                images = self._images(corpus_ids, corpus_ids, corpus_images)
+            t0 = time.perf_counter()
+            self.analyses = self.analyzer.analyze(corpus_ids, corpus_texts, images)
+            self.timings["analyze_seconds"] = round(time.perf_counter() - t0, 2)
+            if cache is not None:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                pages = {p: a.to_dict() for p, a in self.analyses.items()}
+                cache.write_text(
+                    json.dumps({"config": config, "pages": pages}, ensure_ascii=False),
+                    encoding="utf-8",
+                )
         # Routing does not depend on which routes are enabled: with a route switched off
         # (ablation) its pages stay where they were sent and are reachable only by the
         # routes that remain, which is what measures the missing route's contribution.
-        if self.work_dir is not None:
-            self.work_dir.mkdir(parents=True, exist_ok=True)
-            (self.work_dir / "page_analysis.json").write_text(
-                json.dumps({p: a.to_dict() for p, a in self.analyses.items()}, ensure_ascii=False),
-                encoding="utf-8",
-            )
+        self.page_routes = {pid: a.route for pid, a in self.analyses.items()}
 
     def index(
         self,
@@ -123,9 +138,14 @@ class HybridPipeline:
         self._route_pages(corpus_ids, corpus_images, corpus_texts)
         if self.reranker is not None and hasattr(self.reranker, "prepare"):
             self.reranker.prepare(corpus_ids, corpus_texts, self.image_provider)
+        if self.text_transform is not None:
+            t0 = time.perf_counter()
+            corpus_texts = self.text_transform(corpus_ids, corpus_texts)
+            self.timings["text_transform_seconds"] = round(time.perf_counter() - t0, 2)
         text_of = dict(zip(corpus_ids, corpus_texts))
-        text_ids = [p for p in corpus_ids if self.page_routes[p] in ("text", "both")]
-        visual_ids = [p for p in corpus_ids if self.page_routes[p] in ("visual", "both")]
+        everywhere = self.routing == "all"
+        text_ids = [p for p in corpus_ids if everywhere or self.page_routes[p] == "text"]
+        visual_ids = [p for p in corpus_ids if everywhere or self.page_routes[p] == "visual"]
         logger.info(
             "routing: %d text pages, %d visual pages, %d total",
             len(text_ids), len(visual_ids), len(corpus_ids),
@@ -156,10 +176,16 @@ class HybridPipeline:
     def search(self, query_ids: list[str], queries: list[str], top_k: int = 10) -> Run:
         query_ids = [str(q) for q in query_ids]
         depth = max(self.candidates, top_k)
+        search_texts = list(queries)
+        if self.rewriter is not None:
+            t0 = time.perf_counter()
+            search_texts = self.rewriter(search_texts)
+            self.timings["rewrite_seconds"] = round(time.perf_counter() - t0, 2)
+            self.search_texts = dict(zip(query_ids, search_texts))
         self.route_runs = {}
         for name, route in self.routes.items():
             t0 = time.perf_counter()
-            self.route_runs[name] = route.search(query_ids, list(queries), top_k=depth)
+            self.route_runs[name] = route.search(query_ids, search_texts, top_k=depth)
             self.timings[f"search_{name}_seconds"] = round(time.perf_counter() - t0, 2)
 
         fused: Run = {}
@@ -204,6 +230,12 @@ class HybridPipeline:
             info["route_runs"] = {**self.route_runs, "fused": self.fused_run}
         if self.reranker is not None and hasattr(self.reranker, "info"):
             info["rerank"] = self.reranker.info()
+        if self.text_transform is not None and hasattr(self.text_transform, "info"):
+            info["text_transform"] = self.text_transform.info()
+        if self.rewriter is not None and hasattr(self.rewriter, "info"):
+            info["rewrite"] = self.rewriter.info()
+        if self.search_texts:
+            info["search_texts"] = dict(self.search_texts)
         return info
 
     def close(self) -> None:

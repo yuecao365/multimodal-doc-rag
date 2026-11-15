@@ -26,7 +26,9 @@ def test_score_matches_brute_force_maxsim(pages):
     expected = [brute_maxsim(query, p) for p in pages.values()]
     np.testing.assert_allclose(store.score(query), expected, rtol=1e-5)
     # Same result when pages are scored in several small chunks.
-    np.testing.assert_allclose(store.score(query, chunk_vectors=8), expected, rtol=1e-5)
+    np.testing.assert_allclose(
+        store.score_many([query, query], chunk_vectors=8)[1], expected, rtol=1e-5
+    )
 
 
 def test_pages_without_vectors_score_zero_and_do_not_shift_others(pages):

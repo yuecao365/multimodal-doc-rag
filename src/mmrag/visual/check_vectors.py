@@ -3,14 +3,16 @@
 Dataset queries are encoded on a cloud GPU in fp16; queries created at run time
 are encoded locally on CPU in bfloat16. Mixing the two is only sound if both
 produce the same vectors, so this re-encodes a few pages and queries locally and
-compares them token by token. Run it once, in the visual environment:
+compares them token by token. For queries, which are what is encoded locally at run
+time, it also compares the ten best pages each version retrieves. Run it once, in
+the visual environment:
 
     python -m mmrag.visual.check_vectors --dataset vidore/vidore_v3_hr \
         --vectors data/vectors/vidore_v3_hr
 
 The model is read from the stored vectors. The result is printed and written to
-``results/<date>_vector_check_<subset>/check.json``; the exit code is 1 when any
-page or query falls below the threshold.
+``results/<date>_vector_check_<subset>/check.json``, pages and queries separately;
+the exit code is 1 when any page or query falls below the threshold.
 """
 
 from __future__ import annotations
@@ -73,10 +75,17 @@ def check_vectors(
         items.append({"kind": "page", "id": pid, **compare(pages.get(pid), fresh)})
         print(items[-1], flush=True)
     for text, fresh in zip(texts, encoder.encode_queries(texts)):
-        items.append({"kind": "query", "id": text, **compare(queries.get(text_key(text)), fresh)})
+        stored = queries.get(text_key(text))
+        k = min(10, len(pages))
+        top = [set(np.argsort(-pages.score(v))[:k]) for v in (stored, fresh)]
+        overlap = len(top[0] & top[1]) / k
+        items.append({"kind": "query", "id": text, **compare(stored, fresh), "top10_same": overlap})
         print(items[-1], flush=True)
 
-    worst = min(item["mean_cosine"] for item in items)
+    worst = {
+        kind: min((i["mean_cosine"] for i in items if i["kind"] == kind), default=None)
+        for kind in ("page", "query")
+    }
     return {
         "dataset": dataset,
         "vectors": str(vectors_dir),
@@ -87,7 +96,10 @@ def check_vectors(
         },
         "threshold": threshold,
         "worst_mean_cosine": worst,
-        "agree": bool(worst > threshold),
+        "agree": {kind: value is None or value > threshold for kind, value in worst.items()},
+        "mean_query_top10_same": float(
+            np.mean([i["top10_same"] for i in items if i["kind"] == "query"] or [1.0])
+        ),
         "items": items,
     }
 
@@ -115,9 +127,10 @@ def main(argv: list[str] | None = None) -> None:
     out = Path(args.out or f"results/{datetime.date.today()}_vector_check_{subset}")
     out.mkdir(parents=True, exist_ok=True)
     (out / "check.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    verdict = "AGREE" if report["agree"] else "DISAGREE"
-    print(f"{verdict}: worst mean cosine {report['worst_mean_cosine']} -> {out / 'check.json'}")
-    sys.exit(0 if report["agree"] else 1)
+    print(f"agree: {report['agree']}, worst mean cosine {report['worst_mean_cosine']}")
+    print(f"top-10 pages shared by stored and local queries: {report['mean_query_top10_same']}")
+    print(f"written to {out / 'check.json'}")
+    sys.exit(0 if all(report["agree"].values()) else 1)
 
 
 if __name__ == "__main__":

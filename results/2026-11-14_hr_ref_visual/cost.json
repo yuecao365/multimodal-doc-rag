@@ -1,0 +1,35 @@
+{
+  "note": "Indexing figures cover only work done in this invocation; a rerun over an existing work_dir reuses what is already indexed.",
+  "index_seconds": 1.02,
+  "index_storage_bytes": 212813716,
+  "index_storage_bytes_per_page": 191724,
+  "search_seconds": 301.03,
+  "search_seconds_per_query": 0.9466,
+  "search_cost_usd_per_query": 0.0,
+  "after_index": {
+    "pages_encoded_now": 0,
+    "visual_index": {
+      "n_pages": 1110,
+      "n_vectors": 831194,
+      "vectors_per_page": 748.8,
+      "dim": 128,
+      "quantization": "float16",
+      "pool_factor": 1,
+      "bytes": 212794552,
+      "bytes_per_page": 191707
+    }
+  },
+  "after_search": {
+    "pages_encoded_now": 0,
+    "visual_index": {
+      "n_pages": 1110,
+      "n_vectors": 831194,
+      "vectors_per_page": 748.8,
+      "dim": 128,
+      "quantization": "float16",
+      "pool_factor": 1,
+      "bytes": 212794552,
+      "bytes_per_page": 191707
+    }
+  }
+}

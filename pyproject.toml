@@ -25,6 +25,12 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
 ]
+# Optional: send model calls to Arize Phoenix (see mmrag/tracing.py).
+tracing = [
+    "openinference-instrumentation-openai",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-http",
+]
 
 [build-system]
 requires = ["hatchling"]

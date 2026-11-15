@@ -1,0 +1,31 @@
+{
+  "note": "Indexing figures cover only work done in this invocation; a rerun over an existing work_dir reuses what is already indexed.",
+  "index_seconds": 1042.87,
+  "index_storage_bytes": 28349759,
+  "index_storage_bytes_per_page": 25540,
+  "search_seconds": 96.25,
+  "search_seconds_per_query": 0.3027,
+  "search_cost_usd_per_query": 0.0,
+  "after_index": {
+    "text_embedding": {
+      "model": "text-embedding-3-small",
+      "calls": 1089,
+      "texts": 1336,
+      "total_tokens": 934099,
+      "cost_usd": 0.01868,
+      "cache_hits": 9
+    },
+    "kg_llm_calls_avoided": 1345
+  },
+  "after_search": {
+    "text_embedding": {
+      "model": "text-embedding-3-small",
+      "calls": 1407,
+      "texts": 1654,
+      "total_tokens": 940588,
+      "cost_usd": 0.01881,
+      "cache_hits": 9
+    },
+    "kg_llm_calls_avoided": 1345
+  }
+}

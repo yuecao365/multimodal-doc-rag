@@ -29,7 +29,8 @@ query   three routes → RRF fusion → optional rerank → context assembly
 
 - Entry points: `src/mmrag/pipelines/factory.py` (assembly), `pipelines/hybrid.py`
   (routing, fusion, rerank), `experiments/run.py` (retrieval runs),
-  `experiments/answer.py` (answer runs).
+  `experiments/answer.py` (answer runs), `experiments/ladder.py` (the ladder table
+  with its significance tests, from `results/ladder.json`).
 - ViDoRe ships parsed Markdown per page, so no PDF parser (Docling/MinerU) is wired
   in, and the knowledge graph is disabled (`NoKGLLM`).
 - Generation builds its own prompt rather than RAG-Anything's `vlm_enhanced` query,
@@ -89,7 +90,11 @@ choice, and remove or update entries that are no longer true.
   `ruff format` and the full test suite before every commit.
 - Tests run offline with stand-in models; no test may call a paid API.
 - **Do not run anything that calls a paid API** (embeddings, VLM, judge, LLM rerank,
-  agent) unless the user explicitly asks for that run.
+  agent) unless the user explicitly asks for that run. Every paid script records
+  its cost in `results/spend.md` and refuses to start once the total reaches
+  `BUDGET_USD`; measure a new kind of run on 20 queries first.
+- Indexes and caches live under `MMRAG_WORK_ROOT` (see `.env.example`), one
+  `--work-dir` per subset, so runs on the same subset share their indexes.
 - Each experiment writes its config and results to `results/<date>_<name>/` and
   must be reproducible. Numbers come only from actual runs.
 - The visual model never runs in the project `.venv` (colpali-engine and

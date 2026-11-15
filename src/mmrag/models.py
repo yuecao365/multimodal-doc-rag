@@ -10,8 +10,13 @@ All remote models go through OpenAI-compatible endpoints configured in .env:
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import os
+import sqlite3
+import threading
+from contextlib import closing
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -82,7 +87,82 @@ class OpenAICompatEmbedder:
         return np.array([d.embedding for d in data], dtype=np.float32)
 
     def usage(self) -> dict:
-        return {"calls": self.calls, "texts": self.texts, "total_tokens": self.total_tokens}
+        return {
+            "model": self.model,
+            "calls": self.calls,
+            "texts": self.texts,
+            "total_tokens": self.total_tokens,
+            "cost_usd": round(cost_usd(self.model, self.total_tokens, 0, 0), 5),
+        }
+
+
+class CachedEmbedder:
+    """Disk cache in front of an embedder: each text is sent to the API once.
+
+    Re-indexing the same pages (another route combination, a truncated dimension)
+    then costs nothing and gives identical vectors. ``usage`` reports the API calls
+    actually made plus the cache hits.
+    """
+
+    def __init__(self, inner: Any, path: str | Path) -> None:
+        self.inner = inner
+        self.model = inner.model
+        self.dim = inner.dim
+        self.max_tokens = inner.max_tokens
+        self.hits = 0
+        self.path = str(path)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, vector BLOB)")
+
+    def _key(self, text: str) -> str:
+        return hashlib.sha1(f"{self.model}|{text}".encode()).hexdigest()
+
+    async def __call__(self, texts: list[str], **kwargs) -> np.ndarray:
+        keys = [self._key(t) for t in texts]
+        found: dict[str, np.ndarray] = {}
+        with closing(sqlite3.connect(self.path)) as db:
+            for key in set(keys):
+                row = db.execute("SELECT vector FROM vectors WHERE key = ?", (key,)).fetchone()
+                if row:
+                    found[key] = np.frombuffer(row[0], dtype=np.float32)
+        missing = list(dict.fromkeys(t for t, k in zip(texts, keys) if k not in found))
+        if missing:
+            fresh = np.asarray(await self.inner(missing), dtype=np.float32)
+            for text, vector in zip(missing, fresh):
+                found[self._key(text)] = vector
+            with closing(sqlite3.connect(self.path)) as db, db:
+                db.executemany(
+                    "INSERT OR REPLACE INTO vectors VALUES (?, ?)",
+                    [(self._key(t), v.tobytes()) for t, v in zip(missing, fresh)],
+                )
+        self.hits += len(texts) - len(missing)
+        return np.stack([found[k] for k in keys])
+
+    def usage(self) -> dict:
+        return {**self.inner.usage(), "cache_hits": self.hits}
+
+
+class TruncatedEmbedder:
+    """Matryoshka truncation: keep the first ``dim`` dimensions and re-normalize.
+
+    ``text-embedding-3-*`` is trained so that a prefix of the vector is itself a
+    usable embedding, so a smaller index needs no new model.
+    """
+
+    def __init__(self, inner: Any, dim: int) -> None:
+        if not 0 < dim <= inner.dim:
+            raise ValueError(f"embedding_dim must be between 1 and {inner.dim}")
+        self.inner = inner
+        self.dim = dim
+        self.max_tokens = inner.max_tokens
+
+    async def __call__(self, texts: list[str], **kwargs) -> np.ndarray:
+        vectors = (await self.inner(texts))[:, : self.dim]
+        return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+
+    def usage(self) -> dict:
+        return self.inner.usage()
 
 
 def text_part(text: str) -> dict:
@@ -101,11 +181,37 @@ def image_part(image: Any, max_side: int = 1568, quality: int = 85) -> dict:
     return {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}}
 
 
+# USD per 1M tokens: (input, cached input, output). Reasoning tokens are billed as output.
+# Source: developers.openai.com/api/docs/pricing, read 2026-11-14.
+PRICES = {
+    "gpt-6-luna": (0.10, 0.01, 0.50),
+    "gpt-6.1-terra": (1.00, 0.05, 5.00),
+    "gpt-5.6-luna": (0.20, 0.02, 1.20),
+    "gpt-5.4-mini": (0.75, 0.075, 4.50),
+    "text-embedding-3-small": (0.02, 0.02, 0.0),
+}
+
+
+def cost_usd(model: str, prompt_tokens: int, cached_tokens: int, completion_tokens: int) -> float:
+    """Cost of a token count at the listed price; a model without a listed price is an error."""
+    if model not in PRICES:
+        raise KeyError(f"No price for '{model}' in mmrag.models.PRICES")
+    fresh, cached, output = PRICES[model]
+    return (
+        (prompt_tokens - cached_tokens) * fresh
+        + cached_tokens * cached
+        + completion_tokens * output
+    ) / 1e6
+
+
 class ChatClient:
     """Chat / vision model behind an OpenAI-compatible endpoint, with usage accounting.
 
-    ``complete(system, parts)`` is the only call the rest of the code relies on,
-    so tests substitute any object with that method.
+    The models used are reasoning models: they take ``max_completion_tokens`` (which
+    covers reasoning and the visible reply) and ``reasoning_effort``, and no temperature.
+
+    ``complete(system, parts)`` is the call most of the code relies on, so tests
+    substitute any object with that method; the agent uses ``chat`` for tool calls.
     """
 
     def __init__(
@@ -113,19 +219,23 @@ class ChatClient:
         base_url: str,
         api_key: str,
         model: str,
-        temperature: float = 0.0,
-        max_tokens: int = 1024,
+        max_tokens: int = 4096,
+        reasoning_effort: str = "low",
     ) -> None:
         from openai import OpenAI
 
         self.model = model
         self.base_url = base_url
-        self.temperature = temperature
         self.max_tokens = max_tokens
+        self.reasoning_effort = reasoning_effort
         self.calls = 0
         self.prompt_tokens = 0
+        self.cached_tokens = 0
         self.completion_tokens = 0
-        self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=5)
+        self.reasoning_tokens = 0
+        self.truncated = 0
+        self._lock = threading.Lock()  # answer runs call the client from several threads
+        self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=8, timeout=180)
 
     @classmethod
     def from_env(cls, model_var: str = "LLM_MODEL", **kwargs) -> ChatClient:
@@ -137,28 +247,50 @@ class ChatClient:
             **kwargs,
         )
 
+    def chat(self, messages: list[dict], **kwargs: Any) -> tuple[Any, int]:
+        """One chat completion; returns (reply message, tokens this call used)."""
+        resp = self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_completion_tokens=self.max_tokens,
+            reasoning_effort=self.reasoning_effort,
+            **kwargs,
+        )
+        usage = resp.usage
+        with self._lock:
+            self.calls += 1
+            self.truncated += resp.choices[0].finish_reason == "length"
+            if usage is not None:
+                self.prompt_tokens += usage.prompt_tokens or 0
+                self.completion_tokens += usage.completion_tokens or 0
+                prompt_details = getattr(usage, "prompt_tokens_details", None)
+                self.cached_tokens += getattr(prompt_details, "cached_tokens", 0) or 0
+                details = getattr(usage, "completion_tokens_details", None)
+                self.reasoning_tokens += getattr(details, "reasoning_tokens", 0) or 0
+        return resp.choices[0].message, (usage.total_tokens or 0) if usage is not None else 0
+
     def complete(self, system: str, parts: list[dict] | str, json_mode: bool = False) -> str:
         content = parts if isinstance(parts, list) else [text_part(parts)]
         kwargs: dict[str, Any] = {}
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        resp = self._client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": content}],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            **kwargs,
-        )
-        self.calls += 1
-        if resp.usage is not None:
-            self.prompt_tokens += resp.usage.prompt_tokens or 0
-            self.completion_tokens += resp.usage.completion_tokens or 0
-        return resp.choices[0].message.content or ""
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": content}]
+        return self.chat(messages, **kwargs)[0].content or ""
 
     def usage(self) -> dict:
+        """Token counts and cost. ``completion_tokens`` includes ``reasoning_tokens``."""
         return {
             "model": self.model,
             "calls": self.calls,
             "prompt_tokens": self.prompt_tokens,
+            "cached_tokens": self.cached_tokens,
             "completion_tokens": self.completion_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
+            "truncated_replies": self.truncated,
+            "cost_usd": round(
+                cost_usd(
+                    self.model, self.prompt_tokens, self.cached_tokens, self.completion_tokens
+                ),
+                5,
+            ),
         }

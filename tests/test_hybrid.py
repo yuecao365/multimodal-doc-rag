@@ -5,6 +5,7 @@ import json
 import pytest
 
 from helpers import PAGES, FakeLateEncoder, page_image
+from mmrag.analysis.page_analyzer import AnalyzerConfig
 from mmrag.pipelines.hybrid import HybridPipeline
 from mmrag.retrieval.bm25 import BM25Retriever
 from mmrag.retrieval.fusion import ranked_ids
@@ -23,6 +24,8 @@ QUERIES = [
 
 class ForcedAnalyzer:
     """Routes the chart page (3) and the table page (4) to the visual route."""
+
+    config = AnalyzerConfig()
 
     def analyze(self, page_ids, texts, images=None, ocr_confidences=None):
         from mmrag.analysis.page_analyzer import PageAnalysis
@@ -86,7 +89,8 @@ def test_routing_all_gives_every_page_to_text_and_visual():
     pipeline.index(IDS, IMAGES, TEXTS)
     assert pipeline.routes["text"].ids == IDS
     assert pipeline.routes["visual"].store.ids == IDS
-    assert set(pipeline.info()["page_routes"].values()) == {"both"}
+    # The analyzer's verdict is still reported: it decides how a page is shown to the model.
+    assert pipeline.info()["page_routes"]["3"] == "visual"
 
 
 def test_routed_index_is_smaller_than_indexing_everything_visually():
@@ -106,7 +110,7 @@ def test_top_k_candidates_and_image_provider(tmp_path):
     assert all(len(r) <= 3 for r in run.values())
     assert all(len(r) <= 3 for r in pipeline.route_runs["bm25"].values())  # depth = max(2, 3)
     saved = json.loads((tmp_path / "w" / "page_analysis.json").read_text(encoding="utf-8"))
-    assert saved["3"]["route"] == "visual"
+    assert saved["pages"]["3"]["route"] == "visual"
 
 
 def test_reranker_reorders_the_fused_candidates():

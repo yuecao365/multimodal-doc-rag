@@ -2,6 +2,11 @@
 
 One place that knows how the pieces fit, used by the experiment runner and by
 the leaderboard adapter.
+
+Every ``build_*`` function takes ``models``: stand-ins for the models that are
+otherwise created from the environment. Tests pass offline ones. Keys:
+``embedder``, ``visual_encoder``, ``visual_pages`` (a page store), ``chat_client``
+(reranking, rewriting, chunk headers, agent) and ``rerank_scorer`` (cross-encoder).
 """
 
 from __future__ import annotations
@@ -22,6 +27,8 @@ class PipelineSpec:
     chunk_top_k: int = 60
     chunk_token_size: int = 1200
     chunk_overlap_token_size: int = 100
+    # Matryoshka truncation of the text embeddings; 0 keeps the model's full dimension.
+    embedding_dim: int = 0
     # visual route
     visual_model: str = "vidore/colqwen2.5-v0.2"
     # Directory with pages.npz / queries.npz from mmrag.visual.encode_cli. Empty: encode
@@ -44,20 +51,47 @@ class PipelineSpec:
     max_table_ratio: float = 0.4
     max_color_ratio: float = 0.06
     # reranking of the fused candidates (hybrid only)
-    rerank: str = "none"  # "none", "maxsim" (full-precision late interaction) or "llm"
+    # "none", "maxsim" (full-precision late interaction), "cross-encoder" (text) or "llm"
+    rerank: str = "none"
     rerank_top_n: int = 20
+    # One-sentence context written by an LLM in front of every chunk before indexing
+    # (dense and BM25); hybrid only.
+    contextual_headers: bool = False
+    # Search with the question plus a hypothetical answer passage (HyDE); hybrid only.
+    hyde: bool = False
+    # A model searches again with its own wording and picks the pages to answer from
+    # (hybrid only). Limits are per question.
+    agent: bool = False
+    agent_max_tool_calls: int = 8
+    agent_token_budget: int = 60_000
+    agent_max_pages: int = 5
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def build_text_route(spec: PipelineSpec, work_dir: Path, embedder: Any | None = None):
-    from mmrag.models import OpenAICompatEmbedder
+def text_index_name(spec: PipelineSpec) -> str:
+    """Directory of the text index: runs that would build different indexes do not share one."""
+    routed = spec.pipeline == "hybrid" and spec.routing == "analyzer"
+    contextual = spec.pipeline == "hybrid" and spec.contextual_headers
+    parts = ["text", "routed" if routed else "", "ctx" if contextual else ""]
+    parts.append(f"d{spec.embedding_dim}" if spec.embedding_dim else "")
+    return "_".join(part for part in parts if part)
+
+
+def build_text_route(spec: PipelineSpec, work_dir: Path, models: dict):
+    from mmrag.models import CachedEmbedder, OpenAICompatEmbedder, TruncatedEmbedder
     from mmrag.pipelines.text_baseline import TextBaselinePipeline
 
-    embedder = embedder or OpenAICompatEmbedder.from_env()
+    embedder = models.get("embedder")
+    if embedder is None:
+        # One cache for every index under the same work root.
+        cache = work_dir.parent / "embedding_cache.sqlite"
+        embedder = CachedEmbedder(OpenAICompatEmbedder.from_env(), cache)
+    if spec.embedding_dim:
+        embedder = TruncatedEmbedder(embedder, spec.embedding_dim)
     return TextBaselinePipeline(
-        working_dir=str(work_dir / "text"),
+        working_dir=str(work_dir / text_index_name(spec)),
         embedder=embedder,
         embedding_dim=getattr(embedder, "dim", None) or 1024,
         embedding_max_tokens=getattr(embedder, "max_tokens", 8192),
@@ -97,32 +131,30 @@ def load_precomputed(visual_store: str, local_query_encoder: bool = False):
     return page_store, PrecomputedQueryEncoder(MultiVectorStore.load(queries), fallback)
 
 
-def build_visual_route(
-    spec: PipelineSpec,
-    work_dir: Path,
-    data: Any | None = None,
-    visual_encoder: Any | None = None,
-    visual_pages: Any | None = None,
-    quantization: str | None = None,
-    pool_factor: int | None = None,
-    store_name: str = "visual/pages.npz",
-):
+def visual_models(spec: PipelineSpec, models: dict) -> tuple[Any, Any]:
+    """(full-precision page store or None, query encoder), loaded once per pipeline."""
+    if "visual_encoder" not in models:
+        if spec.visual_store:
+            models["visual_pages"], models["visual_encoder"] = load_precomputed(
+                spec.visual_store, spec.local_query_encoder
+            )
+        else:
+            from mmrag.visual.encoder import ColpaliEncoder
+
+            models["visual_encoder"] = ColpaliEncoder(spec.visual_model)
+    return models.get("visual_pages"), models["visual_encoder"]
+
+
+def build_visual_route(spec: PipelineSpec, work_dir: Path, models: dict, data: Any | None = None):
     from mmrag.visual.retriever import VisualRetriever
 
-    precomputed = visual_pages
-    encoder = visual_encoder
-    if encoder is None and spec.visual_store:
-        precomputed, encoder = load_precomputed(spec.visual_store, spec.local_query_encoder)
-    elif encoder is None:
-        from mmrag.visual.encoder import ColpaliEncoder
-
-        encoder = ColpaliEncoder(spec.visual_model)
+    precomputed, encoder = visual_models(spec, models)
     return VisualRetriever(
         encoder=encoder,
-        store_path=work_dir / store_name,
+        store_path=work_dir / "visual" / "pages.npz",
         precomputed=precomputed,
-        quantization=quantization or spec.quantization,
-        pool_factor=pool_factor or spec.pool_factor,
+        quantization=spec.quantization,
+        pool_factor=spec.pool_factor,
         image_provider=data.iter_page_images if data is not None else None,
     )
 
@@ -133,45 +165,35 @@ def build_bm25_route(spec: PipelineSpec, work_dir: Path):
     return BM25Retriever(store_path=work_dir / "bm25" / "index.json", language=spec.bm25_language)
 
 
-def build_reranker(
-    spec: PipelineSpec,
-    visual_encoder: Any | None = None,
-    visual_pages: Any | None = None,
-    rerank_client: Any | None = None,
-):
+def chat_client(models: dict, model_var: str = "LLM_MODEL"):
+    if models.get("chat_client") is not None:
+        return models["chat_client"]
+    from mmrag.models import ChatClient
+
+    return ChatClient.from_env(model_var)
+
+
+def build_reranker(spec: PipelineSpec, models: dict):
     """The second-stage reranker named by ``spec.rerank``, or None."""
-    from mmrag.rerank.rerankers import LLMReranker, MaxSimReranker
+    from mmrag.rerank.rerankers import CrossEncoderReranker, LLMReranker, MaxSimReranker
 
     if spec.rerank == "none":
         return None
+    if spec.rerank == "cross-encoder":
+        return CrossEncoderReranker(scorer=models.get("rerank_scorer"))
     if spec.rerank == "llm":
-        if rerank_client is None:
-            from mmrag.models import ChatClient
-
-            rerank_client = ChatClient.from_env("RERANK_MODEL", max_tokens=400)
-        return LLMReranker(rerank_client)
+        return LLMReranker(chat_client(models, "RERANK_MODEL"))
     if spec.rerank == "maxsim":
-        if visual_pages is None or visual_encoder is None:
-            if not spec.visual_store:
-                raise ValueError(
-                    "--rerank maxsim needs --visual-store: full-precision vectors of every page"
-                )
-            visual_pages, visual_encoder = load_precomputed(
-                spec.visual_store, spec.local_query_encoder
+        pages, encoder = visual_models(spec, models)
+        if pages is None:
+            raise ValueError(
+                "--rerank maxsim needs --visual-store: full-precision vectors of every page"
             )
-        return MaxSimReranker(visual_encoder, visual_pages)
-    raise ValueError(f"Unknown reranker '{spec.rerank}'. Choose none, maxsim or llm")
+        return MaxSimReranker(encoder, pages)
+    raise ValueError(f"Unknown reranker '{spec.rerank}'. Choose none, maxsim, cross-encoder or llm")
 
 
-def build_hybrid(
-    spec: PipelineSpec,
-    work_dir: Path,
-    embedder: Any | None = None,
-    data: Any | None = None,
-    visual_encoder: Any | None = None,
-    visual_pages: Any | None = None,
-    rerank_client: Any | None = None,
-):
+def build_hybrid(spec: PipelineSpec, work_dir: Path, models: dict, data: Any | None = None):
     from mmrag.analysis.page_analyzer import AnalyzerConfig, PageAnalyzer
     from mmrag.pipelines.hybrid import ROUTES, HybridPipeline
 
@@ -186,51 +208,66 @@ def build_hybrid(
             max_color_ratio=spec.max_color_ratio,
         )
     )
+    text_transform = rewriter = None
+    if spec.contextual_headers:
+        from mmrag.retrieval.contextual import ContextualHeaders
+
+        if data is None:
+            raise ValueError("contextual_headers needs the dataset (document and page numbers)")
+        text_transform = ContextualHeaders(
+            chat_client(models),
+            doc_ids=dict(zip(data.corpus_ids, data.doc_ids)),
+            page_numbers=dict(zip(data.corpus_ids, data.page_numbers)),
+            cache_path=work_dir / "contextual_headers.json",
+            chunk_tokens=spec.chunk_token_size,
+            overlap_tokens=spec.chunk_overlap_token_size,
+        )
+    if spec.hyde:
+        from mmrag.retrieval.rewrite import HydeRewriter
+
+        rewriter = HydeRewriter(chat_client(models), cache_path=work_dir / "hyde_passages.json")
     return HybridPipeline(
-        text=build_text_route(spec, work_dir, embedder) if "text" in routes else None,
+        text=build_text_route(spec, work_dir, models) if "text" in routes else None,
         bm25=build_bm25_route(spec, work_dir) if "bm25" in routes else None,
-        visual=(
-            build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
-            if "visual" in routes
-            else None
-        ),
+        visual=build_visual_route(spec, work_dir, models, data) if "visual" in routes else None,
         analyzer=analyzer,
         routing=spec.routing,
         rrf_k=spec.rrf_k,
         candidates=spec.candidates,
-        reranker=build_reranker(spec, visual_encoder, visual_pages, rerank_client),
+        reranker=build_reranker(spec, models),
         rerank_top_n=spec.rerank_top_n,
+        text_transform=text_transform,
+        rewriter=rewriter,
         image_provider=data.iter_page_images if data is not None else None,
         analyzer_uses_images=spec.analyzer_images,
         work_dir=work_dir,
     )
 
 
-def build_pipeline(
-    spec: PipelineSpec,
-    work_dir: str | Path,
-    embedder: Any | None = None,
-    data: Any | None = None,
-    visual_encoder: Any | None = None,
-    visual_pages: Any | None = None,
-    rerank_client: Any | None = None,
-    **_,
-):
+def build_pipeline(spec: PipelineSpec, work_dir: str | Path, data: Any | None = None, **models):
     """Return an object with index / search / storage_bytes (see retrieval.base.Retriever).
 
-    ``embedder``, ``visual_encoder`` and ``visual_pages`` override the models that would
-    otherwise be created from the environment; tests pass offline stand-ins. ``data`` is
-    the loaded dataset, used to read page images on demand.
+    ``models`` are stand-ins for models (see the module docstring). ``data`` is the
+    loaded dataset, used to read page images and page numbers on demand.
     """
     work_dir = Path(work_dir)
     if spec.pipeline == "text":
-        return build_text_route(spec, work_dir, embedder)
+        return build_text_route(spec, work_dir, models)
     if spec.pipeline == "visual":
-        return build_visual_route(spec, work_dir, data, visual_encoder, visual_pages)
+        return build_visual_route(spec, work_dir, models, data)
     if spec.pipeline == "bm25":
         return build_bm25_route(spec, work_dir)
     if spec.pipeline == "hybrid":
-        return build_hybrid(
-            spec, work_dir, embedder, data, visual_encoder, visual_pages, rerank_client
+        hybrid = build_hybrid(spec, work_dir, models, data)
+        if not spec.agent:
+            return hybrid
+        from mmrag.pipelines.agent import AgentSearch
+
+        return AgentSearch(
+            hybrid,
+            chat_client(models),
+            max_tool_calls=spec.agent_max_tool_calls,
+            token_budget=spec.agent_token_budget,
+            max_pages=spec.agent_max_pages,
         )
     raise ValueError(f"Unknown pipeline '{spec.pipeline}'. Choose from {PIPELINES}")

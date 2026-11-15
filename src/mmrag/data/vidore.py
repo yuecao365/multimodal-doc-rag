@@ -41,6 +41,8 @@ class VidoreSubset:
     bboxes: BBoxes = field(default_factory=dict)
     # Kind of evidence per judged page, {query_id: {corpus_id: ["Text", "Chart", ...]}}.
     content_types: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    # The dataset's question types per query, e.g. ["multi-hop", "numerical"].
+    query_types: dict[str, list[str]] = field(default_factory=dict)
     snapshot_dir: Path | None = None
 
     def iter_page_images(
@@ -149,7 +151,7 @@ def _read(snapshot: Path, part: str, columns: list[str] | None = None) -> list[d
 
 def load_vidore_subset(
     dataset_name: str = "vidore/vidore_v3_hr",
-    n_queries: int | None = 50,
+    n_queries: int | None = None,
     language: str | None = "english",
     seed: int = 0,
 ) -> VidoreSubset:
@@ -159,7 +161,9 @@ def load_vidore_subset(
     Page images are not loaded here; use ``VidoreSubset.iter_page_images``.
     """
     snapshot = resolve_snapshot(dataset_name)
-    query_rows = _read(snapshot, "queries", ["query_id", "query", "language", "answer"])
+    query_rows = _read(
+        snapshot, "queries", ["query_id", "query", "language", "answer", "query_types"]
+    )
     qrel_rows = _read(
         snapshot, "qrels", ["query_id", "corpus_id", "score", "bounding_boxes", "content_type"]
     )
@@ -199,5 +203,6 @@ def load_vidore_subset(
         page_numbers=[int(r.get("page_number_in_doc") or 0) for r in corpus_rows],
         bboxes=bboxes,
         content_types=content_types,
+        query_types={q: list(by_qid[q].get("query_types") or []) for q in picked},
         snapshot_dir=snapshot,
     )

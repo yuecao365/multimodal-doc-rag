@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import datetime as dt
+import gzip
 import hashlib
 import importlib.metadata as md
 import json
+import os
 import platform
 import subprocess
 from pathlib import Path
@@ -26,11 +28,25 @@ def results_dir(name: str, date: str | None = None) -> Path:
     return path
 
 
-def write_json(path: Path, obj: Any) -> None:
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+def work_root() -> Path:
+    """Where indexes and caches live: MMRAG_WORK_ROOT, or rag_storage/ in the project."""
+    return Path(os.getenv("MMRAG_WORK_ROOT") or ROOT / "rag_storage")
+
+
+def write_json(path: Path, obj: Any, indent: int | None = 2) -> None:
+    """``indent=None`` writes one compact line; a ``.gz`` path is written gzip-compressed
+    (rankings are large and not read by people)."""
+    separators = (",", ":") if indent is None else None
+    text = json.dumps(obj, ensure_ascii=False, indent=indent, separators=separators)
+    if path.suffix == ".gz":
+        path.write_bytes(gzip.compress(text.encode("utf-8"), mtime=0))
+    else:
+        path.write_text(text, encoding="utf-8")
 
 
 def read_json(path: Path) -> Any:
+    if path.suffix == ".gz":
+        return json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
     return json.loads(path.read_text(encoding="utf-8"))
 
 

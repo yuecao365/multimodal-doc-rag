@@ -1,0 +1,8 @@
+[
+  {"step": "0", "change": "Baseline: text route alone (dense embeddings, LightRAG naive), top 5 pages as text", "run": "2026-11-14_hr_baseline", "kind": "baseline"},
+  {"step": "ref", "change": "BM25 alone", "run": "2026-11-14_hr_ref_bm25", "kind": "reference"},
+  {"step": "ref", "change": "Visual alone (ColQwen2.5, every page)", "run": "2026-11-14_hr_ref_visual", "kind": "reference"},
+  {"step": "1", "change": "+ BM25, fused with RRF", "run": "2026-11-14_hr_s1_text_bm25", "against": "2026-11-14_hr_baseline", "kind": "quality", "metric": "ndcg"},
+  {"step": "2", "change": "+ visual route over every page, RRF of three routes", "run": "2026-11-14_hr_s2_three_routes", "against": "2026-11-14_hr_s1_text_bm25", "kind": "quality", "metric": "ndcg"},
+  {"step": "3", "change": "Per-page routing: text pages to the text index, visual pages to the visual index (efficiency)", "run": "2026-11-14_hr_s3_routed", "against": "2026-11-14_hr_s2_three_routes", "kind": "efficiency", "metric": "ndcg"}
+]

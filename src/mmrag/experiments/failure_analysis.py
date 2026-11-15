@@ -43,12 +43,9 @@ def analyze_failures(results: Path) -> dict:
     )
     top_k = config["pipeline"]["top_k"]
     run = read_json(results / "run.json")
-    route_runs = {
-        name: read_json(results / f"run_{name}.json")
-        for name in ROUTE_NAMES
-        if (results / f"run_{name}.json").exists()
-    }
-    fused = read_json(results / "run_fused.json") if (results / "run_fused.json").exists() else None
+    saved = results / "route_runs.json.gz"
+    route_runs = read_json(saved) if saved.exists() else {}
+    fused = route_runs.pop("fused", None)
     page_routes = (
         read_json(results / "page_routes.json") if (results / "page_routes.json").exists() else {}
     )

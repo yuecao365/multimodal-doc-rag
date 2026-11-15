@@ -31,8 +31,11 @@ design changes, each measured, raises it to Y on held-out data.
   query, p-value, kept or not, link to the run directory.
 - **The ladder order matters for attribution,** so phase 9 also removes each kept
   change from the final system one at a time (leave-one-out ablation).
-- **Answer runs are paid;** run them for the baseline, after each change that
-  passed on retrieval, for every generation/agent change, and for the final system.
+- **Answer runs are paid,** so the judge scores answers only where they decide
+  something: on hr the baseline, the final system, the agent vs the best non-agent
+  system, and the robustness checks (phase 8); on finance_en the baseline and the
+  final system. Retrieval changes, including their leave-one-out ablations, are
+  measured with NDCG@10 and Recall@10 only.
 - Every technique is one switch in `PipelineSpec` (or one experiment script), off
   by default. Keep only what supports a conclusion in the final README; do not add
   variants, backends or models just to have them.
@@ -166,9 +169,8 @@ Run on the final system.
 
 - Freeze the final system and every setting chosen on hr.
 - On finance_en run: the baseline and the final system (retrieval and answers), the
-  leave-one-out ablations of the final system (retrieval; answers only where the
-  removed change is a generation or agent change), and the storage comparison of
-  routing. Do not tune anything on finance_en; if a result looks wrong, fix bugs
+  leave-one-out ablations of the final system (retrieval metrics only; the agent's
+  effect on answers is measured on hr), and the storage comparison of routing. Do not tune anything on finance_en; if a result looks wrong, fix bugs
   only, and record it.
 - `README.md` for a reader who has never seen the project: what it does, the
   architecture diagram, how to run, the ladder table (dev and held-out), the

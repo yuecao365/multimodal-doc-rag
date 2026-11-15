@@ -202,12 +202,18 @@ class MultiVectorStore:
 
     # -- scoring ---------------------------------------------------------------
 
-    def score(self, query: np.ndarray, chunk_vectors: int = 200_000) -> np.ndarray:
+    def score(self, query: np.ndarray) -> np.ndarray:
         """MaxSim of one query (n_tokens, dim) against every page; shape (n_pages,)."""
-        scores = np.zeros(len(self.ids), dtype=np.float32)
-        if not len(self.ids) or not len(query):
-            return scores
-        query = np.asarray(query, dtype=np.float32)
+        return self.score_many([query])[0]
+
+    def score_many(self, queries: list[np.ndarray], chunk_vectors: int = 200_000) -> np.ndarray:
+        """MaxSim of several queries against every page; shape (n_queries, n_pages).
+
+        The store is read in chunks of whole pages, and each chunk is unpacked to
+        float32 once for all queries: unpacking costs more than the scoring itself.
+        """
+        scores = np.zeros((len(queries), len(self.ids)), dtype=np.float32)
+        queries = [np.asarray(q, dtype=np.float32) for q in queries]
         counts = np.diff(self.offsets)
         start = 0
         while start < len(self.ids):
@@ -220,11 +226,13 @@ class MultiVectorStore:
             lo, hi = self.offsets[start], self.offsets[end]
             nonempty = np.flatnonzero(counts[start:end] > 0)
             if hi > lo and len(nonempty):
-                block = dequantize(self.vectors[lo:hi], self.quantization, self.dim)
-                sims = query @ block.T  # (n_query_tokens, n_block_vectors)
+                block = dequantize(self.vectors[lo:hi], self.quantization, self.dim).T
                 starts = (self.offsets[start:end] - lo)[nonempty]
-                best = np.maximum.reduceat(sims, starts, axis=1)  # per query token, per page
-                scores[start + nonempty] = best.sum(axis=0)
+                for row, query in enumerate(queries):
+                    if len(query):
+                        sims = query @ block  # (n_query_tokens, n_block_vectors)
+                        best = np.maximum.reduceat(sims, starts, axis=1)  # per token, per page
+                        scores[row, start + nonempty] = best.sum(axis=0)
             start = end
         return scores
 

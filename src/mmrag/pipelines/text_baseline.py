@@ -82,13 +82,20 @@ class TextBaselinePipeline:
             enable_equation_processing=False,
             display_content_stats=False,
         )
+        embedder = self.embedder
+
+        # LightRAG deep-copies its configuration. A plain function is copied by
+        # reference; an embedder object holding an API client cannot be copied.
+        async def embed(texts, **kwargs):
+            return await embedder(texts)
+
         rag = RAGAnything(
             config=config,
             llm_model_func=self.llm,
             embedding_func=EmbeddingFunc(
                 embedding_dim=self.embedding_dim,
                 max_token_size=self.embedding_max_tokens,
-                func=self.embedder,
+                func=embed,
             ),
             lightrag_kwargs={
                 # LightRAG shares in-process state per workspace name, not per directory.
@@ -121,22 +128,35 @@ class TextBaselinePipeline:
     ) -> None:
         rag = await self._ensure_rag()
         total = len(corpus_ids)
-        for i, (cid, text) in enumerate(zip(corpus_ids, corpus_texts), start=1):
-            if not text or not text.strip():
-                self.skipped_empty.append(cid)
-                continue
-            doc_id = f"doc-{cid}"
-            existing = await rag.lightrag.doc_status.get_by_id(doc_id)
-            if existing and _status_name(existing) == "processed":
-                continue
-            await rag.insert_content_list(
-                content_list=[{"type": "text", "text": text, "page_idx": 0}],
-                file_path=cid,
-                doc_id=doc_id,
-                display_stats=False,
-            )
-            if i % 50 == 0 or i == total:
-                logger.info("text route: indexed %d/%d pages", i, total)
+        # LightRAG rewrites every store file after each inserted document, which makes
+        # indexing quadratic in the number of pages. Persist every 200 pages instead.
+        persist = rag.lightrag._insert_done
+
+        async def persist_later(*args, **kwargs) -> None:
+            return None
+
+        rag.lightrag._insert_done = persist_later
+        try:
+            for i, (cid, text) in enumerate(zip(corpus_ids, corpus_texts), start=1):
+                if not text or not text.strip():
+                    self.skipped_empty.append(cid)
+                    continue
+                doc_id = f"doc-{cid}"
+                existing = await rag.lightrag.doc_status.get_by_id(doc_id)
+                if existing and _status_name(existing) == "processed":
+                    continue
+                await rag.insert_content_list(
+                    content_list=[{"type": "text", "text": text, "page_idx": 0}],
+                    file_path=cid,
+                    doc_id=doc_id,
+                    display_stats=False,
+                )
+                if i % 200 == 0:
+                    await persist()
+                    logger.info("text route: indexed %d/%d pages", i, total)
+        finally:
+            rag.lightrag._insert_done = persist
+            await persist()
 
     # -- search --------------------------------------------------------------
 

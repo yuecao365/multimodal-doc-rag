@@ -105,10 +105,9 @@ class VisualRetriever:
         if self.store is None:
             raise RuntimeError("index() must be called before search()")
         run: Run = {}
-        query_vectors = self.encoder.encode_queries(list(queries))
-        for qid, vectors in zip(query_ids, query_vectors):
-            scores = self.store.score(vectors)
-            run[str(qid)] = top_k_of(dict(zip(self.store.ids, map(float, scores))), top_k)
+        scores = self.store.score_many(self.encoder.encode_queries(list(queries)))
+        for qid, row in zip(query_ids, scores):
+            run[str(qid)] = top_k_of(dict(zip(self.store.ids, map(float, row))), top_k)
         return run
 
     def storage_bytes(self) -> int:

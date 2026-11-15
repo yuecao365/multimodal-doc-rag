@@ -67,8 +67,9 @@ reranking / citation check / failure analysis.
 robustness checks and the held-out test on `finance_en`. All are done; the outcome
 is in `README.md`, `results/ladder.md` and `results/heldout.md`. The final system
 is three routes over every page (no per-page routing: it lost quality), contextual
-chunk headers, a compressed index and the agent; rerankers and HyDE stay in the
-code as switches that did not pass.
+chunk headers, a compressed index and the agent; rerankers, HyDE and the agent's
+`visual_search` tool (`--local-query-encoder`) stay in the code as switches that
+did not pass.
 
 `DECISIONS.md` records each choice made during implementation and its reason. It is
 written in Chinese for the project owner. Add a short entry for every non-obvious

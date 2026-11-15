@@ -11,5 +11,6 @@
   {"step": "5", "change": "Contextual chunk headers before dense and BM25 indexing", "run": "2026-11-14_hr_x_ctx_no_rerank", "against": "2026-11-14_hr_s2_three_routes", "kind": "quality", "metric": "ndcg"},
   {"step": "6", "change": "Index compression (efficiency): text vectors cut to 512 dims; visual vectors int8, pooled 3x", "run": "2026-11-15_hr_s6_compressed", "against": "2026-11-14_hr_x_ctx_no_rerank", "kind": "efficiency", "metric": "ndcg"},
   {"step": "7", "change": "HyDE: text and BM25 routes search with the question plus a hypothetical passage", "run": "2026-11-15_hr_s7_hyde", "against": "2026-11-15_hr_s6_compressed", "kind": "quality", "metric": "ndcg"},
-  {"step": "8", "change": "Retrieval agent: searches again with its own wording and picks at most 5 pages to answer from", "run": "2026-11-15_hr_s8_agent", "against": "2026-11-15_hr_s6_compressed", "kind": "quality", "metric": "answer"}
+  {"step": "8", "change": "Retrieval agent: searches again with its own wording and picks at most 5 pages to answer from", "run": "2026-11-15_hr_s8_agent", "against": "2026-11-15_hr_s6_compressed", "kind": "quality", "metric": "answer"},
+  {"step": "9", "change": "Agent with visual_search: it can also search the page images with its own wording (local ColQwen2.5 query encoder)", "run": "2026-11-15_hr_s9_agent_visual", "against": "2026-11-15_hr_s8_agent", "kind": "quality", "metric": "answer"}
 ]

@@ -97,6 +97,7 @@ p < 0.05 to be kept, efficiency changes are kept unless they are significantly w
 | 6 | [Index compression](results/2026-11-15_hr_s6_compressed/) (efficiency) | 0.610 | 0.632 | 50.3 | +0.007 [−0.001, +0.015] | 0.107 | yes |
 | 7 | [HyDE](results/2026-11-15_hr_s7_hyde/) | 0.601 | | 50.3 | −0.009 [−0.028, +0.011] | 0.396 | no |
 | 8 | [Retrieval agent](results/2026-11-15_hr_s8_agent/) | 0.663 | 0.670 | 50.3 | +0.038 [+0.003, +0.072] answer score | 0.044 | yes |
+| 9 | [Agent with `visual_search`](results/2026-11-15_hr_s9_agent_visual/) | 0.657 | 0.670 | 50.3 | +0.000 [−0.027, +0.027] answer score | 1.00 | no |
 
 Reference runs: [BM25 alone](results/2026-11-14_hr_ref_bm25/) 0.497,
 [visual alone](results/2026-11-14_hr_ref_visual/) 0.601. Equal-weight fusion of the
@@ -192,6 +193,15 @@ Side evaluations on the final system
 - **Reranking**, all three variants: MaxSim +0.018 (p = 0.15), an LLM listwise
   rerank +0.009 (p = 0.55, $0.0007 and 3.8 s per query), a text cross-encoder
   −0.048 (p = 0.004, 12 s per query on CPU).
+- **`visual_search` for the agent** (step 9): letting the agent also search the
+  page images with its own wording, through a local ColQwen2.5 query encoder.
+  The answer score is the same (0.670 both, difference +0.000, p = 1.0) and
+  NDCG@10 is 0.657 against 0.663 (−0.006, p = 0.34). The agent rarely chose the
+  tool: 28 of 1,241 tool calls, in 24 of 318 questions. Search cost is unchanged
+  ($0.0008 per question, 3.9 tool calls), but the agent step takes 13.7 s per
+  question instead of 6.2 s, because the encoder runs on CPU on a machine short
+  of memory. The final system therefore stays without it, and the held-out set
+  was not run again.
 - **HyDE**: it improves the text route and BM25 individually (0.509 → 0.518 and
   0.507 → 0.529) but the fused result drops by 0.009 (p = 0.40).
 
@@ -230,9 +240,10 @@ Tracing of agent runs (optional): `uv sync --group tracing`, start Phoenix
 
 ## Limits of these results
 
-- The agent ran without `visual_search`: encoding new queries with ColQwen2.5 needs
-  about 8 GB of free memory, which the development machine did not have. It still
-  starts from the visual route's results for the original question.
+- The agent in the final system has no `visual_search` tool: it was tested on `hr`
+  and did not change the answer score (see "What did not help"). The agent still
+  starts from the visual route's results for the original question and can open
+  page images.
 - The judge has not yet been checked against human labels; review samples are
   exported with every judged run.
 - Prompt caching did not apply to the contextual-header calls, so they were paid

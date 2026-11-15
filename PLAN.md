@@ -136,8 +136,9 @@ design changes, each measured, raises it to Y on held-out data.
     from (dynamic top-k instead of a fixed 5).
   - Hard limits: max tool calls (e.g. 8) and a token budget per question.
   - `visual_search` needs the local query encoder (`--local-query-encoder`); without
-    it the tool is not offered. The hr run was made without it (the machine did not
-    have the memory), so the agent's effect with visual re-search is not measured.
+    it the tool is not offered. Tested as its own ladder step on hr (step 9): the
+    answer score did not change (+0.000, p = 1.0) and the agent seldom used the
+    tool, so the final system is the agent without it.
   - Tool-calling turns run with `reasoning_effort="none"`: the chat completions
     endpoint does not accept function tools together with reasoning for this model.
   - Reuse the existing routes, fusion, context assembly, generation and citation

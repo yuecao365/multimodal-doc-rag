@@ -1,0 +1,98 @@
+{
+  "settings": {
+    "max_pages": 5,
+    "token_budget": 12000,
+    "form": "auto",
+    "with_regions": false
+  },
+  "n_queries": 318,
+  "answers_unparsed": 0,
+  "abstained": 0.11949685534591195,
+  "answer": {
+    "n_judged": 318,
+    "n_unparsed": 0,
+    "mean_score": 0.6698113207547169,
+    "accuracy_strict": 0.48427672955974843,
+    "n_correct": 154,
+    "n_partially_correct": 118,
+    "n_incorrect": 46
+  },
+  "answer_score_ci95": [
+    0.6289308176100629,
+    0.7091194968553459
+  ],
+  "answer_score_breakdown": {
+    "query_type": {
+      "boolean": {
+        "n": 41,
+        "mean": 0.7195
+      },
+      "compare-contrast": {
+        "n": 61,
+        "mean": 0.6311
+      },
+      "enumerative": {
+        "n": 61,
+        "mean": 0.6311
+      },
+      "extractive": {
+        "n": 87,
+        "mean": 0.7069
+      },
+      "multi-hop": {
+        "n": 30,
+        "mean": 0.7
+      },
+      "numerical": {
+        "n": 84,
+        "mean": 0.6964
+      },
+      "open-ended": {
+        "n": 88,
+        "mean": 0.6307
+      }
+    },
+    "relevant_pages": {
+      "1": {
+        "n": 71,
+        "mean": 0.7042
+      },
+      "10+": {
+        "n": 52,
+        "mean": 0.5769
+      },
+      "2-4": {
+        "n": 123,
+        "mean": 0.6911
+      },
+      "5-9": {
+        "n": 72,
+        "mean": 0.6667
+      }
+    }
+  },
+  "citations": {
+    "n_answers": 318,
+    "n_citations": 757,
+    "answers_with_citations": 0.9874213836477987,
+    "answers_all_citations_ok": 0.8867924528301887,
+    "citation_verified_rate": 0.9458388375165125,
+    "citation_page_not_in_context_rate": 0.002642007926023778,
+    "citation_quote_not_found_rate": 0.05019815059445178,
+    "citation_no_quote_rate": 0.001321003963011889,
+    "citation_unverifiable_rate": 0.0
+  },
+  "provenance": {
+    "cited_pages": 1.679245283018868,
+    "citation_precision": 0.6697589098532495,
+    "citation_recall": 0.35790804549357214,
+    "citation_f1": 0.4156217416565458,
+    "cites_a_relevant_page": 0.7767295597484277
+  },
+  "pages_in_context": 2.3773584905660377,
+  "context_has_relevant_page": 0.8270440251572327,
+  "region": {
+    "n_scored": 0,
+    "mean_iou": null
+  }
+}

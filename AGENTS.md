@@ -36,7 +36,9 @@ query   three routes → RRF fusion → optional rerank → optional agent (sear
   hybrid pipeline), `experiments/run.py` (retrieval runs),
   `experiments/answer.py` (answer runs), `experiments/ladder.py` (the ladder table
   with its significance tests, from `results/ladder.json`; `ladder heldout` builds
-  the held-out table), `experiments/compression.py` (index size against quality),
+  the held-out table), `experiments/breakdown.py` (scores by query type and number
+  of relevant pages, from stored results), `experiments/compression.py` (index
+  size against quality),
   `experiments/robustness.py` (abstention, prompt injection).
 - ViDoRe ships parsed Markdown per page, so no PDF parser (Docling/MinerU) is wired
   in, and the knowledge graph is disabled (`NoKGLLM`).

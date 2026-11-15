@@ -202,3 +202,27 @@ def test_ladder_table_decides_from_stored_numbers(run_dir, tmp_path):
     write_json(tmp_path / "results" / "heldout.json", [{**steps[1], "kind": "ablation"}])
     ablation = ladder_table(tmp_path / "results", "heldout").splitlines()[2].split(" | ")
     assert ablation[-2] == "-" and "ndcg" in ablation[7]
+
+
+def test_breakdown_table_reads_stored_per_query_scores(run_dir, tmp_path):
+    from mmrag.experiments.breakdown import breakdown_table
+
+    run_dir("text_only", "--pipeline", "text")
+    answer_run(run_dir("hybrid", *HYBRID), generator(), judge())
+    runs = {"baseline": "2000-01-01_text_only", "final": "2000-01-01_hybrid"}
+    write_json(tmp_path / "results" / "breakdown.json", {"tiny": runs})
+
+    lines = [line.split(" | ") for line in breakdown_table(tmp_path / "results").splitlines()]
+    assert lines[0][3:] == [
+        "NDCG@10 baseline",
+        "NDCG@10 final",
+        "answer baseline",
+        "answer final |",
+    ]
+    everything = lines[2]
+    assert everything[1:3] == ["all", "4"]
+    # The baseline was not judged; the judged run's mean is the one the ladder shows.
+    assert everything[5] == "-" and everything[6] == "0.750 |"
+    assert [row[1] for row in lines[-4:]] == [
+        "1 relevant", "2-4 relevant", "5-9 relevant", "10+ relevant",
+    ]  # fmt: skip

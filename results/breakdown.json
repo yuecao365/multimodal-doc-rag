@@ -1,0 +1,4 @@
+{
+  "hr": {"baseline": "2026-11-14_hr_baseline", "one-shot": "2026-11-15_hr_s6_compressed", "final": "2026-11-15_hr_s8_agent"},
+  "finance_en": {"baseline": "2026-11-15_fin_baseline", "one-shot": "2026-11-15_fin_final", "final": "2026-11-15_fin_final_agent"}
+}

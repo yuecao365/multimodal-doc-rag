@@ -14,3 +14,12 @@
 {"time": "2026-11-15T03:26:32", "run": "2026-11-15_hr_trace_demo", "what": "index + search", "usd": 0.00196}
 {"time": "2026-11-15T03:29:36", "run": "2026-11-15_hr_robustness", "what": "abstention, injection, defended answers", "usd": 0.39823}
 {"time": "2026-11-15T03:42:29", "run": "2026-11-15_hr_robustness", "what": "abstention, injection, defended answers", "usd": 0.30874}
+{"time": "2026-11-15T04:07:52", "run": "2026-11-15_fin_baseline", "what": "index + search", "usd": 0.05241}
+{"time": "2026-11-15T04:10:58", "run": "2026-11-15_fin_baseline", "what": "answers (309 queries)", "usd": 0.37789}
+{"time": "2026-11-15T04:45:40", "run": "2026-11-15_fin_loo_no_headers", "what": "index + search", "usd": 0.20378}
+{"time": "2026-11-15T05:19:42", "run": "2026-11-15_fin_final", "what": "index + search", "usd": 1.42601}
+{"time": "2026-11-15T05:37:25", "run": "2026-11-15_fin_final_agent", "what": "index + search", "usd": 0.22666}
+{"time": "2026-11-15T05:44:25", "run": "2026-11-15_fin_final_agent", "what": "answers (309 queries)", "usd": 0.29821}
+{"time": "2026-11-15T06:01:24", "run": "2026-11-15_fin_loo_no_bm25", "what": "index + search", "usd": 0.22676}
+{"time": "2026-11-15T06:13:56", "run": "2026-11-15_fin_loo_no_visual", "what": "index + search", "usd": 0.23226}
+{"time": "2026-11-15T06:14:56", "run": "2026-11-15_fin_loo_no_compression", "what": "index + search", "usd": 0.23248}

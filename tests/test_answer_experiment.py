@@ -197,3 +197,8 @@ def test_ladder_table_decides_from_stored_numbers(run_dir, tmp_path):
     # an efficiency step with no loss is.
     assert quality[-2] == "no" and efficiency[-2] == "yes"
     assert "+0.000 [+0.000, +0.000] ndcg" in efficiency[7]
+
+    # A held-out table uses the same code; an "ablation" row is tested but not decided.
+    write_json(tmp_path / "results" / "heldout.json", [{**steps[1], "kind": "ablation"}])
+    ablation = ladder_table(tmp_path / "results", "heldout").splitlines()[2].split(" | ")
+    assert ablation[-2] == "-" and "ndcg" in ablation[7]

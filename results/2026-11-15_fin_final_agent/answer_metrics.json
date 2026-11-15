@@ -1,0 +1,98 @@
+{
+  "settings": {
+    "max_pages": 5,
+    "token_budget": 12000,
+    "form": "auto",
+    "with_regions": false
+  },
+  "n_queries": 309,
+  "answers_unparsed": 0,
+  "abstained": 0.06796116504854369,
+  "answer": {
+    "n_judged": 309,
+    "n_unparsed": 0,
+    "mean_score": 0.6796116504854369,
+    "accuracy_strict": 0.5242718446601942,
+    "n_correct": 162,
+    "n_partially_correct": 96,
+    "n_incorrect": 51
+  },
+  "answer_score_ci95": [
+    0.6375404530744336,
+    0.7216828478964401
+  ],
+  "answer_score_breakdown": {
+    "query_type": {
+      "boolean": {
+        "n": 48,
+        "mean": 0.7708
+      },
+      "compare-contrast": {
+        "n": 52,
+        "mean": 0.5288
+      },
+      "enumerative": {
+        "n": 33,
+        "mean": 0.7576
+      },
+      "extractive": {
+        "n": 136,
+        "mean": 0.7279
+      },
+      "multi-hop": {
+        "n": 24,
+        "mean": 0.5625
+      },
+      "numerical": {
+        "n": 101,
+        "mean": 0.6733
+      },
+      "open-ended": {
+        "n": 54,
+        "mean": 0.6019
+      }
+    },
+    "relevant_pages": {
+      "1": {
+        "n": 76,
+        "mean": 0.7895
+      },
+      "10+": {
+        "n": 36,
+        "mean": 0.625
+      },
+      "2-4": {
+        "n": 113,
+        "mean": 0.6549
+      },
+      "5-9": {
+        "n": 84,
+        "mean": 0.6369
+      }
+    }
+  },
+  "citations": {
+    "n_answers": 309,
+    "n_citations": 731,
+    "answers_with_citations": 0.9935275080906149,
+    "answers_all_citations_ok": 0.883495145631068,
+    "citation_verified_rate": 0.9370725034199726,
+    "citation_page_not_in_context_rate": 0.0,
+    "citation_quote_not_found_rate": 0.06292749658002736,
+    "citation_no_quote_rate": 0.0,
+    "citation_unverifiable_rate": 0.0
+  },
+  "provenance": {
+    "cited_pages": 1.5307443365695792,
+    "citation_precision": 0.7463322545846818,
+    "citation_recall": 0.4035109814806379,
+    "citation_f1": 0.47213239012319336,
+    "cites_a_relevant_page": 0.8252427184466019
+  },
+  "pages_in_context": 2.0258899676375406,
+  "context_has_relevant_page": 0.8446601941747572,
+  "region": {
+    "n_scored": 0,
+    "mean_iou": null
+  }
+}

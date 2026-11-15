@@ -1,0 +1,11 @@
+[
+  {"step": "baseline", "change": "Baseline: text route alone, top 5 pages as text", "run": "2026-11-15_fin_baseline", "kind": "baseline"},
+  {"step": "final", "change": "Final system: text + BM25 + visual, contextual headers, compressed index, agent", "run": "2026-11-15_fin_final_agent", "against": "2026-11-15_fin_baseline", "kind": "ablation", "metric": "answer"},
+  {"step": "final", "change": "Final system against the baseline, retrieval", "run": "2026-11-15_fin_final_agent", "against": "2026-11-15_fin_baseline", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without agent", "change": "One-shot retrieval, top of the fused ranking", "run": "2026-11-15_fin_final", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without BM25", "change": "Routes: text, visual", "run": "2026-11-15_fin_loo_no_bm25", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without visual", "change": "Routes: text, BM25", "run": "2026-11-15_fin_loo_no_visual", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without headers", "change": "No contextual chunk headers", "run": "2026-11-15_fin_loo_no_headers", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "without compression", "change": "Text vectors 1536 dims; visual vectors float16, not pooled", "run": "2026-11-15_fin_loo_no_compression", "against": "2026-11-15_fin_final_agent", "kind": "ablation", "metric": "ndcg"},
+  {"step": "routing", "change": "Per-page routing, no agent (compare with the row 'without agent')", "run": "2026-11-15_fin_routed", "against": "2026-11-15_fin_final", "kind": "ablation", "metric": "ndcg"}
+]

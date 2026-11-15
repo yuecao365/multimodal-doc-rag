@@ -96,3 +96,9 @@ def judge_agreement(path: str | Path) -> dict:
     )
     kappa = (observed - expected) / (1 - expected) if expected < 1 else 1.0
     return {"n": n, "agreement": observed, "cohen_kappa": kappa}
+
+
+if __name__ == "__main__":  # python -m mmrag.eval.answers results/<run>/review_sample.csv
+    import sys
+
+    print(judge_agreement(sys.argv[1]))

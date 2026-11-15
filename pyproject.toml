@@ -2,7 +2,7 @@
 name = "mmrag"
 version = "0.1.0"
 description = "Multimodal document RAG: page-level visual retrieval and per-page routing on top of RAG-Anything"
-readme = "AGENTS.md"
+readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "raganything>=1.4.4,<1.5",

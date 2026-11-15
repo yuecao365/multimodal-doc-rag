@@ -1,0 +1,20 @@
+{
+  "python": "3.12.13",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "git_commit": "d8cc254b2a304ee59f44e9b765990422c5422bdf",
+  "git_dirty": true,
+  "uv_lock_sha256": "acf3487343010731e827bbc2de09daf7bdafe36ee0f2ecc156fa671bc496f461",
+  "packages": {
+    "raganything": "1.4.4",
+    "lightrag-hku": "1.4.16",
+    "pyarrow": "26.0.1",
+    "pytrec-eval-terrier": "0.5.11",
+    "openai": "2.54.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "snowballstemmer": "3.1.1",
+    "torch": "2.15.0",
+    "colpali-engine": null,
+    "transformers": "4.57.6"
+  }
+}

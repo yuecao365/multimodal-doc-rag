@@ -18,5 +18,14 @@
 | 2026-11-15T03:26:32 | 2026-11-15_hr_trace_demo | index + search | 0.0020 | 2.2610 |
 | 2026-11-15T03:29:36 | 2026-11-15_hr_robustness | abstention, injection, defended answers | 0.3982 | 2.6592 |
 | 2026-11-15T03:42:29 | 2026-11-15_hr_robustness | abstention, injection, defended answers | 0.3087 | 2.9680 |
+| 2026-11-15T04:07:52 | 2026-11-15_fin_baseline | index + search | 0.0524 | 3.0204 |
+| 2026-11-15T04:10:58 | 2026-11-15_fin_baseline | answers (309 queries) | 0.3779 | 3.3983 |
+| 2026-11-15T04:45:40 | 2026-11-15_fin_loo_no_headers | index + search | 0.2038 | 3.6021 |
+| 2026-11-15T05:19:42 | 2026-11-15_fin_final | index + search | 1.4260 | 5.0281 |
+| 2026-11-15T05:37:25 | 2026-11-15_fin_final_agent | index + search | 0.2267 | 5.2547 |
+| 2026-11-15T05:44:25 | 2026-11-15_fin_final_agent | answers (309 queries) | 0.2982 | 5.5529 |
+| 2026-11-15T06:01:24 | 2026-11-15_fin_loo_no_bm25 | index + search | 0.2268 | 5.7797 |
+| 2026-11-15T06:13:56 | 2026-11-15_fin_loo_no_visual | index + search | 0.2323 | 6.0120 |
+| 2026-11-15T06:14:56 | 2026-11-15_fin_loo_no_compression | index + search | 0.2325 | 6.2444 |
 
-Total: 2.97 USD of a 25 USD cap.
+Total: 6.24 USD of a 25 USD cap.

@@ -9,8 +9,11 @@ have no whole-page visual retrieval. This project adds:
 
 1. **Whole-page visual retrieval**: page images as multi-vectors from a
    late-interaction model (ColPali family), scored with MaxSim.
-2. **Per-page routing**: text-heavy pages go to text retrieval, chart/table-heavy
-   pages to visual retrieval; BM25 covers every page; results are fused.
+2. **Three fused routes**: dense text, BM25 and visual retrieval, fused with RRF.
+   Per-page routing (text-heavy pages only in the text index, chart/table-heavy
+   pages only in the visual index) is implemented and saves index space, but it
+   lost quality on both subsets and is off in the final system (`--routing all`).
+3. **A retrieval agent** that searches again and picks the pages to answer from.
 
 Headline result: an improvement ladder from a simple, standard text-RAG baseline to
 the final system, each step measured, confirmed on a held-out subset (see
@@ -32,7 +35,9 @@ query   three routes → RRF fusion → optional rerank → optional agent (sear
   (routing, fusion, rerank), `pipelines/agent.py` (agentic search on top of the
   hybrid pipeline), `experiments/run.py` (retrieval runs),
   `experiments/answer.py` (answer runs), `experiments/ladder.py` (the ladder table
-  with its significance tests, from `results/ladder.json`).
+  with its significance tests, from `results/ladder.json`; `ladder heldout` builds
+  the held-out table), `experiments/compression.py` (index size against quality),
+  `experiments/robustness.py` (abstention, prompt injection).
 - ViDoRe ships parsed Markdown per page, so no PDF parser (Docling/MinerU) is wired
   in, and the knowledge graph is disabled (`NoKGLLM`).
 - Generation builds its own prompt rather than RAG-Anything's `vlm_enhanced` query,
@@ -55,11 +60,15 @@ query   three routes → RRF fusion → optional rerank → optional agent (sear
 
 ## Phases
 
-1–4 are done: baseline, visual retrieval, hybrid with routing and fusion,
+1–4 built the pieces: baseline, visual retrieval, hybrid with routing and fusion,
 reranking / citation check / failure analysis.
 
-Phases 5–9 are in `PLAN.md`. Before starting a phase, read only that phase's
-section of `PLAN.md`.
+5–9 (in `PLAN.md`) measured them: the ladder on `hr`, the retrieval agent,
+robustness checks and the held-out test on `finance_en`. All are done; the outcome
+is in `README.md`, `results/ladder.md` and `results/heldout.md`. The final system
+is three routes over every page (no per-page routing: it lost quality), contextual
+chunk headers, a compressed index and the agent; rerankers and HyDE stay in the
+code as switches that did not pass.
 
 `DECISIONS.md` records each choice made during implementation and its reason. It is
 written in Chinese for the project owner. Add a short entry for every non-obvious

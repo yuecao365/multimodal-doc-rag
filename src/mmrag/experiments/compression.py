@@ -1,6 +1,7 @@
 """Index size against retrieval quality, for the text and the visual index.
 
     uv run python -m mmrag.experiments.compression --visual-store data/vectors/vidore_v3_hr
+    uv run python -m mmrag.experiments.compression --render results/<date>_<name>
 
 Text index: Matryoshka truncation of the embeddings (1536 / 768 / 512 / 256 / 128).
 Visual index: quantization (float16 / int8 / binary) and token pooling (1 / 2 / 3),
@@ -12,12 +13,16 @@ from the embedding cache, visual vectors from the stored full-precision ones.
 Writes table.json, table.md and chart.svg to results/<date>_<name>/. The chosen
 setting of each index is the smallest one that is not significantly worse; reranked
 settings are shown but not chosen, because the rerank needs the full vectors kept.
+table.json holds one row per setting (metrics, storage, test result, usage
+counters) and no per-query or per-page data; ``--render`` rebuilds table.md and
+chart.svg from it without running anything.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -26,12 +31,21 @@ from mmrag.eval.retrieval import evaluate_run
 from mmrag.eval.significance import paired_test
 from mmrag.experiments import spend
 from mmrag.experiments.chart import line_chart
-from mmrag.experiments.common import ROOT, environment, results_dir, work_root, write_json
+from mmrag.experiments.common import (
+    ROOT,
+    environment,
+    read_json,
+    results_dir,
+    work_root,
+    write_json,
+)
 from mmrag.pipelines.factory import PipelineSpec, build_pipeline
 
 TEXT_DIMS = (0, 768, 512, 256, 128)  # 0 = full
 QUANTIZATIONS = ("float16", "int8", "binary")
 POOL_FACTORS = (1, 2, 3)
+# Per-query and per-page detail in a pipeline's report; 23 settings of it made a 24 MB table.
+DETAIL_KEYS = ("route_runs", "page_routes")
 
 
 def settings(visual_store: str, text_dims=TEXT_DIMS) -> list[tuple[str, str, PipelineSpec]]:
@@ -58,6 +72,7 @@ def measure(spec: PipelineSpec, data, work_dir, **models) -> dict:
     run = pipeline.search(data.query_ids, data.queries, top_k=spec.top_k)
     storage = pipeline.storage_bytes()
     usage = pipeline.info() if hasattr(pipeline, "info") else {}
+    usage = {k: v for k, v in usage.items() if k not in DETAIL_KEYS}
     if hasattr(pipeline, "embedder") and hasattr(pipeline.embedder, "usage"):
         usage = {**usage, "embedding": pipeline.embedder.usage()}
     if hasattr(pipeline, "close"):
@@ -119,14 +134,35 @@ def to_markdown(rows: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render(out: Path) -> str:
+    """table.md and chart.svg from the table.json in ``out``."""
+    rows = read_json(out / "table.json")
+    dataset = read_json(out / "config.json")["dataset"]
+    (out / "table.md").write_text(to_markdown(rows), encoding="utf-8")
+    series: dict[str, list[tuple[float, float, str]]] = {}
+    for r in rows:
+        series.setdefault(r["index"], []).append((r["kb_per_page"], r["ndcg_cut_10"], r["setting"]))
+    line_chart(
+        series, out / "chart.svg", f"Index size vs retrieval quality ({dataset})",
+        "index size, KB per page (log scale)", "NDCG@10",
+    )  # fmt: skip
+    return to_markdown(rows)
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--dataset", default="vidore/vidore_v3_hr")
-    p.add_argument("--visual-store", required=True)
+    p.add_argument("--visual-store", help="directory of the page and query vectors")
     p.add_argument("--name", default="compression")
-    p.add_argument("--work-dir", required=True, help="index directory under the work root")
+    p.add_argument("--work-dir", help="index directory under the work root")
     p.add_argument("--date", default=None)
+    p.add_argument("--render", help="results directory: rebuild table.md and chart.svg only")
     args = p.parse_args(argv)
+    if args.render:
+        print(render(Path(args.render)))
+        return
+    if not (args.visual_store and args.work_dir):
+        p.error("--visual-store and --work-dir are required for a run")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     load_dotenv(ROOT / ".env")
     spend.check_budget()
@@ -138,15 +174,7 @@ def main(argv: list[str] | None = None) -> None:
     rows = compression_table(data, args.visual_store, work_root() / args.work_dir)
     spend.record(out.name, "text embeddings for the compression grid", [r["usage"] for r in rows])
     write_json(out / "table.json", rows)
-    (out / "table.md").write_text(to_markdown(rows), encoding="utf-8")
-    series: dict[str, list[tuple[float, float, str]]] = {}
-    for r in rows:
-        series.setdefault(r["index"], []).append((r["kb_per_page"], r["ndcg_cut_10"], r["setting"]))
-    line_chart(
-        series, out / "chart.svg", f"Index size vs retrieval quality ({args.dataset})",
-        "index size, KB per page (log scale)", "NDCG@10",
-    )  # fmt: skip
-    print(to_markdown(rows))
+    print(render(out))
 
 
 if __name__ == "__main__":

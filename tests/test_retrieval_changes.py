@@ -161,3 +161,13 @@ def test_compression_table_compares_every_setting_with_the_uncompressed_route(
     series = {"visual": [(r["kb_per_page"], r["ndcg_cut_10"], r["setting"]) for r in rows[2:11]]}
     line_chart(series, tmp_path / "chart.svg", "t", "x", "y")
     assert (tmp_path / "chart.svg").read_text(encoding="utf-8").count("<circle") == 9
+
+    # The stored table has no per-query data, and the table and chart rebuild from it alone.
+    from mmrag.experiments.common import write_json
+    from mmrag.experiments.compression import render
+
+    assert not any("route_runs" in r["usage"] or "per_query" in r for r in rows)
+    write_json(tmp_path / "table.json", rows)
+    write_json(tmp_path / "config.json", {"dataset": "d"})
+    assert render(tmp_path) == to_markdown(rows)
+    assert (tmp_path / "chart.svg").read_text(encoding="utf-8").count("<circle") == len(rows)

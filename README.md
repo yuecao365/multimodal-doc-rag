@@ -273,7 +273,7 @@ uv run python -m mmrag.experiments.ladder          # rebuild results/ladder.md
 
 These call paid APIs. Every paid script logs its cost to
 [results/spend.md](results/spend.md) and stops at the cap set by `BUDGET_USD`.
-All experiments in this repository cost 6.24 USD in total.
+All experiments in this repository cost 7.06 USD in total.
 
 To check the LLM judge against your own labels, fill the `human_verdict` column of
 a run's `review_sample.csv` and run

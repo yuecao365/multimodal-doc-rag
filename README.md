@@ -25,22 +25,7 @@ project adds:
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph Index
-    P[PDF pages<br/>image + parsed text] --> H[Contextual header<br/>per text chunk, LLM]
-    H --> T[Dense text index<br/>512-dim embeddings]
-    H --> B[BM25 index]
-    P --> V[Visual index<br/>ColQwen2.5 multi-vectors<br/>int8, pooled 3x]
-  end
-  subgraph Query
-    Q[Question] --> T & B & V
-    T & B & V --> F[RRF fusion]
-    F --> A[Agent: searches again,<br/>reads pages, picks up to 5]
-    A --> G[VLM answer<br/>with page citations]
-    G --> C[Citation check in code]
-  end
-```
+![Architecture: three retrieval routes, RRF fusion, retrieval agent, VLM answer, citation check](docs/architecture.svg)
 
 Models: `gpt-6-luna` answers, runs the agent and writes the contextual headers.
 `gpt-6.1-terra`, a different and stronger model, judges the answers. Text

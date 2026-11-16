@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" width="1000" height="470" role="img" aria-label="Architecture: PDF pages are indexed three ways (dense text with contextual headers, BM25, ColQwen2.5 page images). A question searches all three, results are merged by RRF, a retrieval agent searches again and picks up to 5 pages, a VLM answers with page citations, and code checks every citation.">
+  <style>
+    .bg { fill: #ffffff; stroke: #d0d7de; }
+    .group { fill: #f6f8fa; stroke: #d0d7de; }
+    .box { fill: #ffffff; stroke: #c3cad3; }
+    .route { fill: #eef4ff; stroke: #a9c3f0; }
+    .agent { fill: #f4f0ff; stroke: #8b6cf0; stroke-width: 1.6; }
+    .ans { fill: #ecfaf1; stroke: #7cc49a; }
+    .pill { fill: #ffffff; stroke: #57606a; stroke-width: 1.4; }
+    .t { fill: #1f2328; font: 600 15px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .s { fill: #59636e; font: 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .g { fill: #59636e; font: 600 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: .06em; }
+    .m { fill: #5b3fd1; font: 12px ui-monospace, "Cascadia Mono", Consolas, monospace; }
+    .sep { stroke: #d6ccfa; }
+    .flow { fill: none; stroke: #444c56; stroke-width: 1.6; }
+    .build { fill: none; stroke: #9198a1; stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .head { fill: #444c56; }
+    .headb { fill: #9198a1; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; stroke: #30363d; }
+      .group { fill: #161b22; stroke: #30363d; }
+      .box { fill: #0d1117; stroke: #3d444d; }
+      .route { fill: #132036; stroke: #35548c; }
+      .agent { fill: #1e1838; stroke: #8b6cf0; }
+      .ans { fill: #10241a; stroke: #3f8f5f; }
+      .pill { fill: #0d1117; stroke: #9198a1; }
+      .t { fill: #e6edf3; }
+      .s, .g { fill: #9198a1; }
+      .m { fill: #b9a6ff; }
+      .sep { stroke: #3a3060; }
+      .flow { stroke: #b1bac4; }
+      .head { fill: #b1bac4; }
+      .build { stroke: #6e7681; }
+      .headb { fill: #6e7681; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="head" d="M0 0L10 5L0 10z"/>
+    </marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="headb" d="M0 0L10 5L0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0.5" y="0.5" width="999" height="469" rx="12"/>
+
+  <!-- PDF page -->
+  <rect class="box" x="20" y="175" width="135" height="80" rx="8"/>
+  <text class="t" x="87.5" y="209" text-anchor="middle">PDF page</text>
+  <text class="s" x="87.5" y="230" text-anchor="middle">image + parsed text</text>
+
+  <!-- three retrieval routes -->
+  <rect class="group" x="185" y="55" width="300" height="310" rx="12"/>
+
+  <!-- build-index arrows (drawn over the group box) -->
+  <path class="build" marker-end="url(#b)" d="M155 215 C182 215 178 133 203 133"/>
+  <path class="build" marker-end="url(#b)" d="M155 215 C182 215 178 223 203 223"/>
+  <path class="build" marker-end="url(#b)" d="M155 215 C182 215 178 313 203 313"/>
+  <text class="g" x="205" y="81">HYBRID RETRIEVAL · 3 ROUTES</text>
+
+  <rect class="route" x="205" y="95" width="260" height="76" rx="8"/>
+  <text class="t" x="220" y="121">Dense text</text>
+  <text class="s" x="220" y="141">chunks + LLM-written context header</text>
+  <text class="s" x="220" y="159">text-embedding-3-small · 512-d</text>
+
+  <rect class="route" x="205" y="185" width="260" height="76" rx="8"/>
+  <text class="t" x="220" y="211">BM25 keyword</text>
+  <text class="s" x="220" y="231">same text chunks</text>
+  <text class="s" x="220" y="249">exact-term matching</text>
+
+  <rect class="route" x="205" y="275" width="260" height="76" rx="8"/>
+  <text class="t" x="220" y="301">Page image</text>
+  <text class="s" x="220" y="321">ColQwen2.5 multi-vector, no parsing</text>
+  <text class="s" x="220" y="339">int8 · 3× token pooling</text>
+
+  <!-- question -->
+  <rect class="pill" x="255" y="400" width="160" height="46" rx="23"/>
+  <text class="t" x="335" y="428" text-anchor="middle">Question</text>
+  <path class="flow" marker-end="url(#a)" d="M335 400 L335 367"/>
+
+  <!-- fusion -->
+  <path class="flow" marker-end="url(#a)" d="M465 133 C492 133 490 215 513 215"/>
+  <path class="flow" marker-end="url(#a)" d="M465 223 C490 223 490 215 513 215"/>
+  <path class="flow" marker-end="url(#a)" d="M465 313 C492 313 490 215 513 215"/>
+  <rect class="box" x="515" y="175" width="100" height="80" rx="8"/>
+  <text class="t" x="565" y="209" text-anchor="middle">RRF fusion</text>
+  <text class="s" x="565" y="230" text-anchor="middle">merge by rank</text>
+
+  <!-- agent -->
+  <path class="flow" marker-end="url(#a)" d="M615 215 L648 215"/>
+  <rect class="agent" x="650" y="115" width="170" height="210" rx="10"/>
+  <text class="t" x="735" y="145" text-anchor="middle">Retrieval agent</text>
+  <text class="s" x="735" y="172" text-anchor="middle">rewrites the query and</text>
+  <text class="s" x="735" y="191" text-anchor="middle">searches again, reads</text>
+  <text class="s" x="735" y="210" text-anchor="middle">pages, keeps up to 5</text>
+  <line class="sep" x1="668" y1="228" x2="802" y2="228"/>
+  <text class="g" x="735" y="247" text-anchor="middle">TOOLS</text>
+  <text class="m" x="735" y="266" text-anchor="middle">text_search</text>
+  <text class="m" x="735" y="284" text-anchor="middle">keyword_search</text>
+  <text class="m" x="735" y="302" text-anchor="middle">read_page</text>
+
+  <!-- answer and check -->
+  <path class="flow" marker-end="url(#a)" d="M820 215 C840 215 834 152 853 152"/>
+  <rect class="ans" x="855" y="110" width="130" height="85" rx="8"/>
+  <text class="t" x="920" y="140" text-anchor="middle">VLM answer</text>
+  <text class="s" x="920" y="160" text-anchor="middle">page image or text</text>
+  <text class="s" x="920" y="178" text-anchor="middle">cites page + quote</text>
+
+  <path class="flow" marker-end="url(#a)" d="M920 195 L920 233"/>
+  <rect class="ans" x="855" y="235" width="130" height="85" rx="8"/>
+  <text class="t" x="920" y="265" text-anchor="middle">Citation check</text>
+  <text class="s" x="920" y="285" text-anchor="middle">page was shown?</text>
+  <text class="s" x="920" y="303" text-anchor="middle">quote is on page?</text>
+
+  <path class="flow" marker-end="url(#a)" d="M920 320 L920 383"/>
+  <rect class="pill" x="845" y="385" width="150" height="46" rx="23"/>
+  <text class="t" x="920" y="413" text-anchor="middle">Cited answer</text>
+
+  <!-- legend -->
+  <path class="build" marker-end="url(#b)" d="M500 437 L540 437"/>
+  <text class="s" x="550" y="441">build index (once)</text>
+  <path class="flow" marker-end="url(#a)" d="M680 437 L720 437"/>
+  <text class="s" x="730" y="441">per question</text>
+</svg>

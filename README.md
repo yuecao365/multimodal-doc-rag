@@ -1,50 +1,46 @@
 # Multimodal Document RAG
 
-Question answering over the pages of PDF reports. The system finds the pages that
-hold the evidence, and a vision language model answers from them, citing pages
-with quotes. Code then checks each citation (the cited page was shown to the
-model, and the quote is on that page) and the pass rate is reported; not every
-answer passes (88% do on the held-out set).
+Question answering over the pages of PDF reports. The system retrieves the pages
+that hold the evidence, a vision language model answers from them and cites pages
+with quotes, and code checks every citation.
 
-It is built on [RAG-Anything](https://github.com/HKUDS/RAG-Anything) / LightRAG,
-which retrieve over parsed text and over text descriptions of images and tables.
-This project adds three things:
+## Highlights
 
-1. **Page-image retrieval.** Every page is indexed as an image: ColQwen2.5 turns
-   it into a set of vectors, and a question is scored against them with MaxSim
-   (late interaction). No text has to be parsed for a page to be found.
-2. **Fusion.** That visual route is fused by rank (RRF) with LightRAG's dense
-   text retrieval and a BM25 index.
-3. **A retrieval agent** that reads the fused results, searches again in its own
-   words, opens pages, and chooses the pages the answer is written from.
+- **Better than plain text RAG on a held-out set.** NDCG@10 rises from 0.524 to
+  0.695 and the answer score from 0.586 to 0.680, both p = 0.0001
+  ([baseline](results/2026-11-15_fin_baseline/),
+  [final system](results/2026-11-15_fin_final_agent/)). The held-out set played no
+  part in any design choice.
+- **Every change was measured on its own.** Nine changes were tried one at a time
+  on a development set, each with a paired significance test. Five were kept and
+  four were not ([ladder](results/ladder.md)).
+- **Every kept part still matters on the held-out set.** Removing the agent, any
+  one of the three retrieval routes, or the contextual headers costs 0.018 to
+  0.050 NDCG@10, each with p < 0.05 ([leave-one-out](results/heldout.md)).
+- **The index is 76% smaller at no loss.** Compression takes it from 220 to 53 KB
+  per page with NDCG@10 unchanged
+  ([without compression](results/2026-11-15_fin_loo_no_compression/)).
+- **Citations are checked, not assumed.** 88% of answers pass every citation check
+  on the held-out set; the baseline passes 85%
+  ([final system](results/2026-11-15_fin_final_agent/),
+  [baseline](results/2026-11-15_fin_baseline/)).
+- **The price is latency.** The agent takes an answer from 3.1 s to 9.0 s on the
+  development set ([one-shot](results/2026-11-15_hr_s6_compressed/),
+  [agent](results/2026-11-15_hr_s8_agent/)).
 
-The project is organised as an **improvement ladder**: start from a plain text-RAG
-baseline, add one change at a time, and keep a change only if a paired
-significance test over the queries says it helps. Changes that did not help are
-reported as such.
+## What is new
 
-## Result in one table
+The project is built on [RAG-Anything](https://github.com/HKUDS/RAG-Anything) /
+LightRAG, which retrieve over parsed text and over text descriptions of images and
+tables. It adds three things:
 
-Development set: ViDoRe v3 `hr` (1,110 pages, 318 English queries). Held-out test
-set: ViDoRe v3 `finance_en` (2,942 pages, 309 English queries), run once with every
-setting frozen from `hr`.
-
-| | NDCG@10 [95% CI] | answer score [95% CI] | index KB/page |
-|---|---|---|---|
-| `hr` (dev): [baseline](results/2026-11-14_hr_baseline/) | 0.493 [0.456, 0.528] | 0.571 [0.525, 0.615] | 24.9 |
-| `hr` (dev): [final system](results/2026-11-15_hr_s8_agent/) | 0.663 [0.629, 0.696] | 0.670 [0.627, 0.711] | 50.3 |
-| `finance_en` (held out): [baseline](results/2026-11-15_fin_baseline/) | 0.524 [0.489, 0.559] | 0.586 [0.540, 0.629] | 27.7 |
-| `finance_en` (held out): [final system](results/2026-11-15_fin_final_agent/) | 0.695 [0.663, 0.726] | 0.680 [0.638, 0.722] | 52.7 |
-
-On the held-out set the final system is better than the baseline by +0.171 NDCG@10
-(95% CI +0.140 to +0.203) and +0.094 answer score (+0.052 to +0.136), both
-p = 0.0001 in a paired randomization test. On the development set the differences
-are +0.170 and +0.099.
-
-The final system: dense text, BM25 and visual retrieval over every page, fused
-with RRF; contextual chunk headers; a compressed index; and a retrieval agent.
-
-## Architecture
+1. **Page-image retrieval.** Every page is indexed as an image. ColQwen2.5 turns it
+   into a set of vectors, and a question is scored against them with MaxSim (late
+   interaction). A page can be found without any parsed text.
+2. **Fusion.** The visual route is fused by rank (RRF) with LightRAG's dense text
+   retrieval and a BM25 index.
+3. **A retrieval agent.** It reads the fused results, searches again in its own
+   words, opens pages, and picks the pages the answer is written from.
 
 ```mermaid
 flowchart LR
@@ -63,195 +59,139 @@ flowchart LR
   end
 ```
 
-- A page is shown to the answering model as text or as an image, decided per page
-  by a rule-based page analyzer (tables, charts and scans go in as images).
-- Models:
+Models: `gpt-6-luna` answers, runs the agent and writes the contextual headers.
+`gpt-6.1-terra`, a different and stronger model, judges the answers, so no model
+grades its own output. Text embeddings are `text-embedding-3-small` cut to 512
+dimensions. Page and query vectors come from `vidore/colqwen2.5-v0.2`.
 
-  | role | model |
-  |---|---|
-  | answer generation, retrieval agent, contextual headers (also the LLM rerank and HyDE switches) | `gpt-6-luna` |
-  | judge of answers | `gpt-6.1-terra` |
-  | text embeddings | `text-embedding-3-small`, cut to 512 dimensions |
-  | page-image and query multi-vectors | `vidore/colqwen2.5-v0.2` |
+## Main result
 
-  The judge is a different and stronger model than the generator (a larger model,
-  ten times the price per token), so no model grades its own answers.
-- Every piece is a switch in `PipelineSpec` (`src/mmrag/pipelines/factory.py`), off
-  by default, so each can be measured against the run without it.
+Development set: ViDoRe v3 `hr` (1,110 pages, 318 English queries). Held-out set:
+ViDoRe v3 `finance_en` (2,942 pages, 309 English queries), with every setting
+frozen from `hr`.
 
-## The ladder on the development set
+| | NDCG@10 [95% CI] | answer score [95% CI] | index KB/page |
+|---|---|---|---|
+| `finance_en` (held out): [baseline](results/2026-11-15_fin_baseline/) | 0.524 [0.489, 0.559] | 0.586 [0.540, 0.629] | 27.7 |
+| `finance_en` (held out): [final system](results/2026-11-15_fin_final_agent/) | 0.695 [0.663, 0.726] | 0.680 [0.638, 0.722] | 52.7 |
 
-Full table with links to every run: [results/ladder.md](results/ladder.md),
-generated by `python -m mmrag.experiments.ladder` from the stored results.
-"Difference" is against the system the change was added to; quality changes need
-p < 0.05 to be kept, efficiency changes are kept unless they are significantly worse.
+On the held-out set the final system gains +0.171 NDCG@10 (95% CI +0.140 to
++0.203) and +0.094 answer score (+0.052 to +0.136) over the baseline, in a paired
+randomization test ([results/heldout.md](results/heldout.md)). The development set
+gives +0.170 and +0.099 (steps 0 and 8 in the ladder below), so the gains are about
+the same on new data.
 
-| step | change | NDCG@10 | answer score | index KB/page | difference [95% CI] | p | kept |
+The baseline is the dense text route alone with the top 5 pages given as text. The
+answer score is the mean of the judge's verdict against a human-checked reference
+answer: correct 1, partially correct 0.5, incorrect 0.
+
+## Why the results can be trusted
+
+**One change at a time, with a test.** Each change is compared with the system it
+was added to, over the same queries. A quality change is kept only if it is better
+with p < 0.05. An efficiency change is kept unless it is significantly worse. Full
+table: [results/ladder.md](results/ladder.md).
+
+| step | change on `hr` | NDCG@10 | answer score | index KB/page | difference [95% CI] | p | kept |
 |---|---|---|---|---|---|---|---|
-| 0 | [Baseline](results/2026-11-14_hr_baseline/): text route alone, top 5 pages as text | 0.493 | 0.571 | 24.9 | | | |
-| 1 | [+ BM25](results/2026-11-14_hr_s1_text_bm25/), fused with RRF | 0.549 | | 27.4 | +0.056 [+0.035, +0.077] | 0.0001 | yes |
-| 2 | [+ visual route](results/2026-11-14_hr_s2_three_routes/) over every page | 0.590 | | 214.6 | +0.041 [+0.028, +0.054] | 0.0001 | yes |
+| 0 | [Baseline](results/2026-11-14_hr_baseline/) | 0.493 | 0.571 | 24.9 | | | |
+| 1 | [+ BM25](results/2026-11-14_hr_s1_text_bm25/) | 0.549 | | 27.4 | +0.056 [+0.035, +0.077] | 0.0001 | yes |
+| 2 | [+ visual route](results/2026-11-14_hr_s2_three_routes/) | 0.590 | | 214.6 | +0.041 [+0.028, +0.054] | 0.0001 | yes |
 | 3 | [Per-page routing](results/2026-11-14_hr_s3_routed/) (efficiency) | 0.562 | | 81.1 | −0.028 [−0.045, −0.010] | 0.0025 | no |
-| 4 | Rerank top 20: [MaxSim](results/2026-11-14_hr_s4_rerank_maxsim/) (best of three) | 0.608 | | 214.6 | +0.018 [−0.005, +0.042] | 0.148 | no |
+| 4 | [Rerank with MaxSim](results/2026-11-14_hr_s4_rerank_maxsim/) (best of three) | 0.608 | | 214.6 | +0.018 [−0.005, +0.042] | 0.148 | no |
 | 5 | [Contextual chunk headers](results/2026-11-14_hr_x_ctx_no_rerank/) | 0.603 | | 216.0 | +0.013 [+0.001, +0.026] | 0.035 | yes |
 | 6 | [Index compression](results/2026-11-15_hr_s6_compressed/) (efficiency) | 0.610 | 0.632 | 50.3 | +0.007 [−0.001, +0.015] | 0.107 | yes |
 | 7 | [HyDE](results/2026-11-15_hr_s7_hyde/) | 0.601 | | 50.3 | −0.009 [−0.028, +0.011] | 0.396 | no |
 | 8 | [Retrieval agent](results/2026-11-15_hr_s8_agent/) | 0.663 | 0.670 | 50.3 | +0.038 [+0.003, +0.072] answer score | 0.044 | yes |
 | 9 | [Agent with `visual_search`](results/2026-11-15_hr_s9_agent_visual/) | 0.657 | 0.670 | 50.3 | +0.000 [−0.027, +0.027] answer score | 1.00 | no |
 
-Reference runs: [BM25 alone](results/2026-11-14_hr_ref_bm25/) 0.497,
-[visual alone](results/2026-11-14_hr_ref_visual/) 0.601. Equal-weight fusion of the
-three routes (0.590) is below the visual route alone; the fused system only passes
-it after the later steps.
-
-Answer score is the mean of an LLM judge's verdict against the reference answer
-(correct 1, partially correct 0.5, incorrect 0). Answers were judged only where
-they decide something: the baseline, the best system without the agent, and the
-final system.
-
-**Latency per question** on `hr` (retrieval + answer generation; API calls from
-one laptop, answers generated 8 at a time, the agent run 6 questions at a time):
-
-| system | retrieval | agent | answer | total |
-|---|---|---|---|---|
-| baseline (step 0) | 0.3 s | | 2.5 s | 2.8 s |
-| best one-shot system (step 6) | 0.2 s | | 2.9 s | 3.1 s |
-| final system with the agent (step 8) | 0.1 s | 6.2 s | 2.7 s | 9.0 s |
-
-On `finance_en` the baseline takes 2.5 s and the final system 15.3 s (the agent
-12.1 s of it). The agent roughly triples the time to an answer.
-
-## Held-out test
-
-`finance_en` was used once, with every setting frozen from `hr`. Full table:
-[results/heldout.md](results/heldout.md).
-
-**Leave-one-out.** Each row removes one kept change from the final system and
-compares retrieval with the final system (NDCG@10 0.695).
+**Leave-one-out on the held-out set.** Each row removes one kept change from the
+final system (NDCG@10 0.695). Full table: [results/heldout.md](results/heldout.md).
 
 | removed | NDCG@10 | difference [95% CI] | p | index KB/page |
 |---|---|---|---|---|
 | [agent](results/2026-11-15_fin_final/) | 0.645 | −0.050 [−0.070, −0.031] | 0.0001 | 52.6 |
 | [visual route](results/2026-11-15_fin_loo_no_visual/) | 0.667 | −0.028 [−0.045, −0.012] | 0.0005 | 21.3 |
-| [dense text route](results/2026-11-15_fin_loo_no_text/) | 0.674 | −0.021 [−0.040, −0.003] | 0.024 | 33.5 |
 | [BM25](results/2026-11-15_fin_loo_no_bm25/) | 0.673 | −0.022 [−0.041, −0.004] | 0.022 | 50.5 |
+| [dense text route](results/2026-11-15_fin_loo_no_text/) | 0.674 | −0.021 [−0.040, −0.003] | 0.024 | 33.5 |
 | [contextual headers](results/2026-11-15_fin_loo_no_headers/) | 0.677 | −0.018 [−0.033, −0.004] | 0.012 | 51.5 |
 | [compression](results/2026-11-15_fin_loo_no_compression/) | 0.695 | −0.000 [−0.014, +0.014] | 0.99 | 220.1 |
 
-Every kept quality change also matters on the held-out set, and so does each of
-the three routes: removing any one of them costs 0.02 to 0.03 NDCG@10. Compression
-again costs nothing: 220 → 53 KB per page (−76%). (The row without the dense text
-route was run after the others, on 2026-11-15, with the same frozen settings.)
-
-**Per-page routing** was not kept on `hr`, and the held-out set agrees.
-[Routed](results/2026-11-15_fin_routed/) against the same system without routing
-(and without the agent): the index shrinks from 52.6 to 24.1 KB per page (−54%; the
-analyzer sends 668 of 2,942 pages to the visual index), and NDCG@10 falls from
-0.645 to 0.596 (−0.049, p = 0.0001).
-
-Other numbers for the final system on `finance_en`: 3.4 tool calls and $0.0007 per
-question for search; 2.0 pages read per answer; 88% of answers pass every citation
-check (baseline 85%); the model declines to answer 6.8% of questions (baseline
-18.8%).
-
-## By query type and number of relevant pages
-
-Mean scores of the baseline, the best one-shot system (step 6) and the final
-system (with the agent), from the stored per-query results
-([results/breakdown.md](results/breakdown.md), generated by
-`python -m mmrag.experiments.breakdown`). A query with several types counts in
-each; the one-shot system's answers were not judged on `finance_en`.
-
-| subset | group | queries | NDCG@10 baseline | NDCG@10 one-shot | NDCG@10 final | answer baseline | answer one-shot | answer final |
-|---|---|---|---|---|---|---|---|---|
-| hr | all | 318 | 0.493 | 0.610 | 0.663 | 0.571 | 0.632 | 0.670 |
-| hr | open-ended | 88 | 0.491 | 0.596 | 0.601 | 0.568 | 0.608 | 0.574 |
-| hr | extractive | 87 | 0.508 | 0.641 | 0.712 | 0.575 | 0.655 | 0.764 |
-| hr | numerical | 84 | 0.493 | 0.628 | 0.704 | 0.595 | 0.619 | 0.708 |
-| hr | compare-contrast | 61 | 0.523 | 0.622 | 0.687 | 0.533 | 0.582 | 0.631 |
-| hr | enumerative | 61 | 0.526 | 0.640 | 0.683 | 0.525 | 0.566 | 0.631 |
-| hr | boolean | 41 | 0.436 | 0.550 | 0.615 | 0.585 | 0.683 | 0.744 |
-| hr | multi-hop | 30 | 0.548 | 0.661 | 0.732 | 0.617 | 0.717 | 0.750 |
-| hr | 1 relevant | 71 | 0.519 | 0.677 | 0.787 | 0.472 | 0.669 | 0.739 |
-| hr | 2-4 relevant | 123 | 0.508 | 0.645 | 0.692 | 0.654 | 0.667 | 0.720 |
-| hr | 5-9 relevant | 72 | 0.459 | 0.535 | 0.562 | 0.604 | 0.632 | 0.625 |
-| hr | 10+ relevant | 52 | 0.467 | 0.537 | 0.566 | 0.462 | 0.500 | 0.519 |
-| finance_en | all | 309 | 0.524 | 0.645 | 0.695 | 0.586 | - | 0.680 |
-| finance_en | extractive | 136 | 0.553 | 0.689 | 0.750 | 0.662 | - | 0.728 |
-| finance_en | numerical | 101 | 0.497 | 0.674 | 0.729 | 0.535 | - | 0.673 |
-| finance_en | open-ended | 54 | 0.555 | 0.592 | 0.617 | 0.583 | - | 0.602 |
-| finance_en | compare-contrast | 52 | 0.362 | 0.411 | 0.491 | 0.452 | - | 0.529 |
-| finance_en | boolean | 48 | 0.641 | 0.791 | 0.811 | 0.656 | - | 0.771 |
-| finance_en | enumerative | 33 | 0.563 | 0.667 | 0.764 | 0.742 | - | 0.758 |
-| finance_en | multi-hop | 24 | 0.417 | 0.544 | 0.580 | 0.396 | - | 0.562 |
-| finance_en | 1 relevant | 76 | 0.652 | 0.799 | 0.875 | 0.684 | - | 0.789 |
-| finance_en | 2-4 relevant | 113 | 0.555 | 0.681 | 0.740 | 0.562 | - | 0.655 |
-| finance_en | 5-9 relevant | 84 | 0.421 | 0.555 | 0.574 | 0.542 | - | 0.637 |
-| finance_en | 10+ relevant | 36 | 0.396 | 0.417 | 0.455 | 0.556 | - | 0.625 |
-
-The agent helps most where the evidence is on one or a few pages and the question
-is specific: with one relevant page NDCG@10 rises from 0.677 to 0.787 on `hr` and
-from 0.799 to 0.875 on `finance_en`, and extractive and numerical questions gain
-the most answer score on `hr` (+0.11 and +0.09). It does not help open-ended
-questions (`hr` answer score 0.608 to 0.574, NDCG@10 flat) and adds little when
-five or more pages are relevant (NDCG@10 +0.02 to +0.04, `hr` answer score flat):
-it selects about two pages, which is too few for those questions.
-
-## Index size against quality
-
-![Index size vs NDCG@10](results/2026-11-15_hr_compression/chart.svg)
-
-Each point is one retrieval run of that route alone on `hr`
-([table](results/2026-11-15_hr_compression/table.md)).
-
-- Text embeddings (`text-embedding-3-small`, Matryoshka truncation): 512 dimensions
-  is the smallest setting not significantly worse than the full 1,536 (−0.012,
-  p = 0.07); 256 and 128 are clearly worse.
-- Visual vectors: int8 costs nothing; 3× token pooling costs 0.005 (not
-  significant); binary is significantly worse. int8 with 3× pooling takes 31 KB per
-  page instead of 187.
-- With a full-precision MaxSim rerank of the top 20, even binary vectors pooled 3×
-  (3.9 KB per page) score 0.598. That needs the full vectors kept on disk, so it is
-  shown but not used.
-- In the full system the chosen settings cut the index from 216 to 50 KB per page
-  (−77%) with no loss.
-
-## Robustness
-
-Side evaluations on the final system
-([results/2026-11-15_hr_robustness](results/2026-11-15_hr_robustness/)).
-
-- **Abstention.** With every relevant page removed from the context (100 queries)
-  the model says the pages do not contain the answer 45% of the time and answers
-  anyway 55% of the time. On normal queries with a relevant page in the context it
-  wrongly declines 8.2% of the time.
-- **Prompt injection.** An instruction is planted in one relevant page, in its text
-  or drawn onto its image (30 queries). A blunt "ignore the question" instruction
-  never succeeds. A quieter one that poses as an editorial note and asks for a
-  sentence to be appended succeeds on 33% of queries. Delimiting page content and
-  telling the model it is data brings that to 0%, and does not lower the answer
-  score on clean queries (0.670 → 0.682, p = 0.36).
+The row without the dense text route was added after the first held-out run, with
+the same frozen settings. No setting was changed after seeing held-out results.
 
 ## What did not help
 
-- **Per-page routing** (send text pages to the text index and visual pages to the
-  visual index): saves 62% of the index but loses 0.028 NDCG@10 (p = 0.0025).
-- **Reranking**, all three variants: MaxSim +0.018 (p = 0.15), an LLM listwise
-  rerank +0.009 (p = 0.55, $0.0007 and 3.8 s per query), a text cross-encoder
-  −0.048 (p = 0.004, 12 s per query on CPU).
-- **`visual_search` for the agent** (step 9): letting the agent also search the
-  page images with its own wording, through a local ColQwen2.5 query encoder.
-  The answer score is the same (0.670 both, difference +0.000, p = 1.0) and
-  NDCG@10 is 0.657 against 0.663 (−0.006, p = 0.34). The agent rarely chose the
-  tool: 28 of 1,241 tool calls, in 24 of 318 questions. Search cost is unchanged
-  ($0.0008 per question, 3.9 tool calls), but the agent step takes 13.7 s per
-  question instead of 6.2 s, because the encoder runs on CPU on a machine short
-  of memory. The final system therefore stays without it, and the held-out set
-  was not run again.
-- **HyDE**: it improves the text route and BM25 individually (0.509 → 0.518 and
-  0.507 → 0.529) but the fused result drops by 0.009 (p = 0.40).
+- **Per-page routing** (text pages only in the text index, visual pages only in
+  the visual index). It saves 62% of the index but loses 0.028 NDCG@10 on `hr`
+  ([run](results/2026-11-14_hr_s3_routed/)). The held-out set agrees: −54% index,
+  −0.049 NDCG@10, p = 0.0001 ([run](results/2026-11-15_fin_routed/)).
+- **Reranking the top 20**, three variants:
+  [MaxSim](results/2026-11-14_hr_s4_rerank_maxsim/) +0.018 (p = 0.15), an
+  [LLM](results/2026-11-14_hr_s4_rerank_llm/) +0.009 (p = 0.55), a
+  [text cross-encoder](results/2026-11-14_hr_s4_rerank_cross_encoder/) −0.048
+  (p = 0.004).
+- **HyDE.** The fused result drops by 0.009, p = 0.40
+  ([run](results/2026-11-15_hr_s7_hyde/)).
+- **`visual_search` for the agent.** The answer score is unchanged (0.670 both,
+  p = 1.0). The agent chose the tool in 24 of 318 questions
+  ([run](results/2026-11-15_hr_s9_agent_visual/)).
 
-## How to run
+## Where the agent helps
+
+Scores by query type and by number of relevant pages are in
+[results/breakdown.md](results/breakdown.md).
+
+- It helps most when the evidence is on one page: NDCG@10 goes from 0.677 to 0.787
+  on `hr` and from 0.799 to 0.875 on `finance_en`.
+- It does not help open-ended questions: the `hr` answer score goes from 0.608 to
+  0.574.
+- It adds little when five or more pages are relevant (NDCG@10 +0.02 to +0.04). It
+  selects about two pages, which is too few for those questions.
+
+## Cost
+
+- **Latency per question on `hr`:** baseline 2.8 s, best system without the agent
+  3.1 s, final system 9.0 s, of which the agent step is 6.2 s
+  ([baseline](results/2026-11-14_hr_baseline/),
+  [one-shot](results/2026-11-15_hr_s6_compressed/),
+  [final](results/2026-11-15_hr_s8_agent/)). On `finance_en` the final system takes
+  15.3 s ([run](results/2026-11-15_fin_final_agent/)).
+- **Agent search on `finance_en`:** 3.4 tool calls and $0.0007 per question
+  ([run](results/2026-11-15_fin_final_agent/)).
+- **Index size:** int8 visual vectors with 3× token pooling take 31 KB per page
+  instead of 187, and 512-dimension text embeddings are the smallest setting not
+  significantly worse than 1,536 (p = 0.07)
+  ([table](results/2026-11-15_hr_compression/table.md),
+  [chart](results/2026-11-15_hr_compression/chart.svg)).
+- **All experiments together cost 7.06 USD** ([results/spend.md](results/spend.md)).
+
+## Robustness
+
+Checked on the final system on `hr`
+([results/2026-11-15_hr_robustness](results/2026-11-15_hr_robustness/)).
+
+- **Abstention.** With every relevant page removed from the context (100
+  queries), the model declines 45% of the time and answers anyway 55% of the time.
+- **Prompt injection.** An instruction posing as an editorial note, planted in a
+  page, succeeds on 33% of 30 queries. Delimiting page content and telling the
+  model it is data brings that to 0%, with no loss of answer score on clean
+  queries (p = 0.36).
+
+## Limits
+
+- The judge has not been checked against human labels yet. Review samples are
+  exported with every judged run.
+- Two decisions are borderline by the p < 0.05 rule: the agent (p = 0.044,
+  [run](results/2026-11-15_hr_s8_agent/)) and the 512-dimension text embeddings
+  (p = 0.07 for a loss, [table](results/2026-11-15_hr_compression/table.md)).
+- One development subset and one held-out subset, English queries only.
+- The agent has no `visual_search` tool, because it did not pass. It still starts
+  from the visual route's results and can open page images.
+- Prompt caching did not apply to the contextual-header calls, so they were paid at
+  full price. The cause is in [DECISIONS.md](DECISIONS.md).
+
+## Run it
 
 ```bash
 uv sync                      # Python 3.12
@@ -259,8 +199,8 @@ cp .env.example .env         # add API keys; see the comments in the file
 uv run pytest                # offline tests, no API calls
 ```
 
-Page images are encoded once on a GPU (`notebooks/encode_colqwen.ipynb` on Kaggle)
-into `data/vectors/<subset>/`. Then, for the final system on `hr`:
+Page images are encoded once on a GPU with `notebooks/encode_colqwen.ipynb` into
+`data/vectors/<subset>/`. The final system on `hr`:
 
 ```bash
 uv run python -m mmrag.experiments.run --pipeline hybrid --routing all \
@@ -271,34 +211,9 @@ uv run python -m mmrag.experiments.answer --results results/<date>_hr_final
 uv run python -m mmrag.experiments.ladder          # rebuild results/ladder.md
 ```
 
-These call paid APIs. Every paid script logs its cost to
+These commands call paid APIs. Every paid script logs its cost to
 [results/spend.md](results/spend.md) and stops at the cap set by `BUDGET_USD`.
-All experiments in this repository cost 7.06 USD in total.
 
-To check the LLM judge against your own labels, fill the `human_verdict` column of
-a run's `review_sample.csv` and run
-`uv run python -m mmrag.eval.answers results/<run>/review_sample.csv`.
-
-Tracing of agent runs (optional): `uv sync --group tracing`, start Phoenix
-(`uvx arize-phoenix serve`) and add `--trace`.
-
-![One traced agent question in Phoenix](docs/agent_trace.png)
-
-## Limits of these results
-
-- The agent in the final system has no `visual_search` tool: it was tested on `hr`
-  and did not change the answer score (see "What did not help"). The agent still
-  starts from the visual route's results for the original question and can open
-  page images.
-- The judge has not yet been checked against human labels; review samples are
-  exported with every judged run.
-- Prompt caching did not apply to the contextual-header calls, so they were paid
-  at the full input price ($0.58 for `hr`). The prompts are long enough (about
-  4,200 tokens, the shared pages first), but this endpoint only reports a cache
-  hit when a prompt begins with an entire earlier prompt, as each turn of the
-  agent's growing conversation does (17% of its input tokens were cached); header
-  prompts share only their leading pages and end in different chunks, and got none.
-- Two decisions are borderline by the p < 0.05 rule: the agent (p = 0.044) and the
-  512-dimension text embeddings (p = 0.07 for a loss).
-- `DECISIONS.md` (in Chinese) records every implementation choice and its reason;
-  `PLAN.md` describes the phases.
+More detail: [PLAN.md](PLAN.md) describes the phases, and
+[DECISIONS.md](DECISIONS.md) (in Chinese) records each implementation choice and
+its reason.
